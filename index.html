@@ -13,6 +13,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
     <link rel="stylesheet" href="style.css">
+
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
     <script src="app.js" defer></script>
     <script src="auth.js" defer></script>
@@ -25,7 +26,7 @@
     <div class="noise"></div>
 
     <!-- NAVIGATION -->
-    <header class="navbar">
+    <header class="navbar" id="mainNavbar">
         <a href="#" class="brand">
             <span class="brand-icon">M</span>
             <span class="brand-name">MAFIA<span class="brand-dot">.</span></span>
@@ -60,11 +61,11 @@
         </button>
     </header>
 
-    <!-- HERO -->
-    <main>
+    <!-- MAIN WEBSITE -->
+    <main id="mainContent">
 
+        <!-- HERO -->
         <section class="hero">
-
             <div class="hero-overlay"></div>
 
             <div class="hero-content">
@@ -107,7 +108,7 @@
                             type="text"
                             id="roomCode"
                             placeholder="ENTER ROOM CODE"
-                            maxlength="12"
+                            maxlength="8"
                             autocomplete="off"
                         >
                         <button id="joinBtn" data-i18n="join">JOIN →</button>
@@ -140,7 +141,6 @@
             <div class="hero-side-text">
                 EST. AFTER DARK — TRUST NO ONE
             </div>
-
         </section>
 
         <!-- ABOUT -->
@@ -182,7 +182,6 @@
                 </article>
 
             </div>
-
         </section>
 
         <!-- ROLES -->
@@ -203,9 +202,7 @@
                     <div class="role-symbol">♛</div>
                     <h3>MAFIA</h3>
                     <span class="role-type" data-i18n="mafiaType">THE ENEMY WITHIN</span>
-                    <p data-i18n="mafiaDescription">
-                        Control the city from the shadows.
-                    </p>
+                    <p data-i18n="mafiaDescription">Control the city from the shadows.</p>
                 </article>
 
                 <article class="role-card sheriff-card">
@@ -213,9 +210,7 @@
                     <div class="role-symbol">★</div>
                     <h3>SHERIFF</h3>
                     <span class="role-type" data-i18n="sheriffType">THE LAW</span>
-                    <p data-i18n="sheriffDescription">
-                        Find the criminals hiding among you.
-                    </p>
+                    <p data-i18n="sheriffDescription">Find the criminals hiding among you.</p>
                 </article>
 
                 <article class="role-card doctor-card">
@@ -223,9 +218,7 @@
                     <div class="role-symbol">✚</div>
                     <h3>DOCTOR</h3>
                     <span class="role-type" data-i18n="doctorType">THE PROTECTOR</span>
-                    <p data-i18n="doctorDescription">
-                        Save lives before the night ends.
-                    </p>
+                    <p data-i18n="doctorDescription">Save lives before the night ends.</p>
                 </article>
 
                 <article class="role-card maniac-card">
@@ -233,13 +226,10 @@
                     <div class="role-symbol">☠</div>
                     <h3>MANIAC</h3>
                     <span class="role-type" data-i18n="maniacType">THE WILDCARD</span>
-                    <p data-i18n="maniacDescription">
-                        Follow your own path to victory.
-                    </p>
+                    <p data-i18n="maniacDescription">Follow your own path to victory.</p>
                 </article>
 
             </div>
-
         </section>
 
         <!-- HOW TO PLAY -->
@@ -277,13 +267,167 @@
                 </div>
 
             </div>
-
         </section>
 
     </main>
 
+    <!-- =========================================
+         GAME LOBBY
+    ========================================== -->
+    <section class="lobby-screen" id="lobbyScreen" hidden>
+
+        <div class="lobby-container">
+
+            <!-- LOBBY HEADER -->
+            <div class="lobby-header">
+
+                <div class="lobby-header-title">
+                    <span class="lobby-eyebrow">MAFIA EXPERIENCE</span>
+                    <h1 id="lobbyRoomName">GECƏ ŞƏHƏRİ</h1>
+                    <p>Oyunun başlaması üçün dostlarını gözlə.</p>
+                </div>
+
+                <button class="lobby-exit-btn" id="leaveRoomBtn">
+                    ← OTAQDAN ÇIX
+                </button>
+
+            </div>
+
+            <!-- ROOM INFORMATION -->
+            <div class="lobby-room-info">
+
+                <div class="lobby-info-item">
+                    <span>OTAQ KODU</span>
+
+                    <div class="lobby-code-wrapper">
+                        <strong id="lobbyRoomCode">--------</strong>
+                        <button id="copyLobbyCode" type="button">COPY</button>
+                    </div>
+                </div>
+
+                <div class="lobby-info-item">
+                    <span>OYUNÇULAR</span>
+                    <strong id="lobbyPlayerCount">0/8</strong>
+                </div>
+
+                <div class="lobby-info-item">
+                    <span>OYUN DİLİ</span>
+                    <strong id="lobbyLanguage">AZ</strong>
+                </div>
+
+                <div class="lobby-info-item">
+                    <span>OTAQ STATUSU</span>
+                    <strong id="lobbyStatus">GÖZLƏYİR</strong>
+                </div>
+
+            </div>
+
+            <!-- LOBBY CONTENT -->
+            <div class="lobby-main">
+
+                <!-- PLAYERS -->
+                <div class="lobby-players-section">
+
+                    <div class="lobby-section-heading">
+                        <div>
+                            <span>THE PLAYERS</span>
+                            <h2>Oyunçular</h2>
+                        </div>
+
+                        <span class="lobby-live-indicator">
+                            <span></span>
+                            LIVE
+                        </span>
+                    </div>
+
+                    <div class="lobby-players-grid" id="lobbyPlayers">
+
+                        <!-- JavaScript oyunçu kartlarını burada yaradacaq -->
+
+                    </div>
+
+                    <div class="lobby-waiting-message" id="lobbyWaitingMessage">
+                        <span>♟</span>
+                        <p>Digər oyunçuların qoşulması gözlənilir...</p>
+                    </div>
+
+                </div>
+
+                <!-- SIDEBAR -->
+                <aside class="lobby-sidebar">
+
+                    <!-- HOST -->
+                    <div class="lobby-host-card">
+
+                        <span class="lobby-card-label">ROOM HOST</span>
+
+                        <div class="lobby-host-avatar">♛</div>
+
+                        <h3 id="lobbyHostName">Host</h3>
+
+                        <span>OTAQ SAHİBİ</span>
+
+                    </div>
+
+                    <!-- GAME SETTINGS -->
+                    <div class="lobby-rules-card">
+
+                        <span class="lobby-card-label">GAME SETTINGS</span>
+
+                        <h3>Oyun qaydaları</h3>
+
+                        <div class="lobby-rule">
+                            <span>Minimum oyunçu</span>
+                            <strong>6</strong>
+                        </div>
+
+                        <div class="lobby-rule">
+                            <span>Maksimum oyunçu</span>
+                            <strong id="lobbyMaxPlayers">8</strong>
+                        </div>
+
+                        <div class="lobby-rule">
+                            <span>Oyun rejimi</span>
+                            <strong>CLASSIC</strong>
+                        </div>
+
+                    </div>
+
+                    <!-- START GAME -->
+                    <div class="lobby-start-card">
+
+                        <span class="lobby-card-label">READY TO PLAY?</span>
+
+                        <h3>Gecə başlayır...</h3>
+
+                        <p id="lobbyStartMessage">
+                            Oyunun başlaması üçün ən azı 6 oyunçu lazımdır.
+                        </p>
+
+                        <button id="startGameBtn" type="button" disabled>
+                            OYUNU BAŞLAT →
+                        </button>
+
+                        <span>Yalnız otaq sahibi oyunu başlada bilər.</span>
+
+                    </div>
+
+                </aside>
+
+            </div>
+
+            <!-- LOBBY FOOTER -->
+            <div class="lobby-footer">
+                <span>MAFIA. — TRUST NO ONE.</span>
+                <span>WAITING FOR PLAYERS...</span>
+            </div>
+
+        </div>
+
+    </section>
+
     <!-- FOOTER -->
-    <footer class="footer">
+    <footer class="footer" id="mainFooter">
 
         <a href="#" class="brand footer-brand">
             <span class="brand-icon">M</span>
@@ -298,7 +442,7 @@
 
     </footer>
 
-    <!-- FUTURE MODAL PLACEHOLDER -->
+    <!-- MODAL -->
     <div class="modal" id="modal">
         <div class="modal-content">
             <button class="modal-close" id="modalClose">×</button>
