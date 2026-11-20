@@ -1,12 +1,13 @@
-
 (() => {
-  const SUPABASE_URL = "https://pgmjtimnnmcttdvfqcnw.supabase.co";
-  const SUPABASE_KEY = "sb_publishable_o_Xk7py1CvvLlU3imqwiOA_ke2Rr-HU";
+  "use strict";
 
-  const mafiaSupabase = window.supabase.createClient(
-    SUPABASE_URL,
-    SUPABASE_KEY
-  );
+  /* Supabase client app.js-dən götürülür (iki ayrı client yaranmasın deyə) */
+  const mafiaSupabase = window.mafiaDB;
+
+  if (!mafiaSupabase) {
+    console.error("Supabase client tapılmadı. app.js düzgün yüklənməyib.");
+    return;
+  }
 
   const authModal = document.getElementById("modal");
   const authTitle = document.getElementById("modalTitle");
@@ -32,36 +33,32 @@
   }
 
   function updateNavbar(user) {
-    if (user) {
-      authLoginBtn.style.display = "none";
-      authSignupBtn.style.display = "none";
+    authLoginBtn.hidden = !!user;
+    authSignupBtn.hidden = !!user;
 
-      if (!profileButton) {
-        profileButton = document.createElement("button");
-        profileButton.className = "signup-btn";
-        profileButton.id = "profileBtn";
+    if (user && !profileButton) {
+      profileButton = document.createElement("button");
+      profileButton.className = "signup-btn";
+      profileButton.id = "profileBtn";
 
-        authSignupBtn.parentElement.insertBefore(
-          profileButton,
-          authSignupBtn
-        );
+      authSignupBtn.parentElement.insertBefore(
+        profileButton,
+        authSignupBtn
+      );
 
-        profileButton.addEventListener("click", showProfile);
-      }
+      profileButton.addEventListener("click", showProfile);
+    }
 
-      const username =
-        user.user_metadata?.username ||
-        user.email?.split("@")[0] ||
-        "Player";
+    if (profileButton) {
+      profileButton.hidden = !user;
 
-      profileButton.textContent = username.toUpperCase();
-      profileButton.style.display = "inline-block";
-    } else {
-      authLoginBtn.style.display = "";
-      authSignupBtn.style.display = "";
+      if (user) {
+        const username =
+          user.user_metadata?.username ||
+          user.email?.split("@")[0] ||
+          "Player";
 
-      if (profileButton) {
-        profileButton.style.display = "none";
+        profileButton.textContent = username.toUpperCase();
       }
     }
   }
@@ -83,7 +80,7 @@
         <h3 id="profileUsername" style="color:#c6a15b;"></h3>
         <p id="profileEmail" style="color:#aaa;"></p>
         <button id="logoutBtn"
-          style="width:100%;padding:13px;background:#8e2633;color:white;border:0;border-radius:8px;cursor:pointer;">
+          style="width:100%;padding:13px;margin-top:12px;background:#8e2633;color:white;border:0;border-radius:8px;cursor:pointer;">
           HESABDAN ÇIX
         </button>
         <p id="profileMessage" style="font-size:13px;color:#c6a15b;"></p>
@@ -119,28 +116,27 @@
     openAuthModal(
       isSignup ? "HESAB YARAT" : "DAXİL OL",
       `
-        <form id="mafiaAuthForm" style="display:flex;flex-direction:column;gap:12px;text-align:left;">
+        <form id="mafiaAuthForm">
           ${isSignup ? `
-            <label>İstifadəçi adı</label>
+            <label for="mafiaUsername">İstifadəçi adı</label>
             <input id="mafiaUsername" type="text"
               minlength="3" maxlength="20"
               placeholder="Player123" required>
           ` : ""}
 
-          <label>E-poçt</label>
+          <label for="mafiaEmail">E-poçt</label>
           <input id="mafiaEmail" type="email"
             placeholder="example@gmail.com" required>
 
-          <label>Şifrə</label>
+          <label for="mafiaPassword">Şifrə</label>
           <input id="mafiaPassword" type="password"
             minlength="8" placeholder="Ən azı 8 simvol" required>
 
-          <button id="mafiaSubmit" type="submit"
-            style="padding:13px;background:#8e2633;color:white;border:0;border-radius:8px;cursor:pointer;">
+          <button id="mafiaSubmit" type="submit" class="modal-action-btn">
             ${isSignup ? "QEYDİYYATDAN KEÇ" : "DAXİL OL"}
           </button>
 
-          <p id="mafiaMessage" style="font-size:13px;color:#c6a15b;text-align:center;"></p>
+          <p id="mafiaMessage" class="room-form-message"></p>
         </form>
       `
     );
@@ -157,6 +153,7 @@
 
       button.disabled = true;
       button.textContent = "GÖZLƏ...";
+      message.textContent = "";
 
       try {
         if (isSignup) {
@@ -174,6 +171,7 @@
           if (data.session) {
             message.textContent = "Qeydiyyat uğurludur!";
             updateNavbar(data.user);
+            setTimeout(closeAuthModal, 1000);
           } else {
             message.textContent =
               "Hesab yaradıldı! E-poçtunu təsdiqlə, sonra daxil ol.";
