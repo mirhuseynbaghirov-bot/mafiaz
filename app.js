@@ -1,164 +1,13 @@
 
-const translations = {
-  az: {
-    about: "Haqqında",
-    roles: "Rollar",
-    how: "Necə oynanılır",
-    login: "Daxil ol",
-    signup: "Qeydiyyat",
-    eyebrow: "Gecə başlayır. Kimə güvənəcəksən?",
-    description: "Şəhər yatarkən mafiya oyanır. Dostlarınla bir araya gəl, rolunu gizlət və həqiqəti tap.",
-    play: "OYUNA BAŞLA",
-    create: "OTAQ YARAT",
-    haveCode: "Otaq kodun var?",
-    join: "QOŞUL",
-    players: "OYUNÇU",
-    languages: "DİL",
-    possibilities: "İMKAN",
-    aboutLabel: "MAFIA HAQQINDA",
-    aboutTitle: "Etibar ən böyük riskindir.",
-    aboutDescription: "Hər oyun fərqli hekayədir. Düşün, danış, şübhələn və düzgün qərar ver.",
-    feature1Title: "Strategiya",
-    feature1Description: "Hər qərar oyunun taleyini dəyişə bilər.",
-    feature2Title: "Multiplayer",
-    feature2Description: "Dostlarınla özəl otaqlarda və ya təsadüfi oyunçularla oyna.",
-    feature3Title: "Gizli rollar",
-    feature3Description: "Heç kimə tam güvənmə. Hər kəsin gizli məqsədi ola bilər.",
-    rolesLabel: "OYUN ROLLARI",
-    rolesTitle: "Sənin rolun nədir?",
-    rolesDescription: "Hər rolun öz məqsədi və strategiyası var.",
-    mafiaType: "GİZLİ TƏHLÜKƏ",
-    mafiaDescription: "Gecə şəhərin taleyinə təsir etməyə çalışan qrup.",
-    sheriffType: "ARAŞDIRMAÇI",
-    sheriffDescription: "Şübhəliləri araşdırır və şəhərə kömək edir.",
-    doctorType: "MÜDAFİƏÇİ",
-    doctorDescription: "Hər gecə bir oyunçunu qorumağa çalışır.",
-    maniacType: "TƏK OYUNÇU",
-    maniacDescription: "Öz strategiyası ilə oyunda qalmağa çalışır.",
-    howLabel: "OYUN QAYDALARI",
-    howTitle: "Oyun necə işləyir?",
-    step1Title: "Otağa qoşul",
-    step1Description: "Dostlarınla otaq yarat və ya mövcud oyuna qoşul.",
-    step2Title: "Rolunu öyrən",
-    step2Description: "Sənə gizli rol veriləcək. Məqsədini müəyyən et.",
-    step3Title: "Müzakirə et",
-    step3Description: "Danış, fikirlərini bölüş və şübhəliləri müəyyən et.",
-    step4Title: "Qərar ver",
-    step4Description: "Səsvermədə iştirak et və komandanın qələbəsinə kömək et.",
-    footerText: "Güvənmə. Araşdır. Qərar ver.",
-    comingTitle: "Tezliklə",
-    comingDescription: "Bu funksiya hazırlanır. Növbəti mərhələdə aktiv olacaq.",
-    emptyCode: "Zəhmət olmasa, otaq kodunu daxil et.",
-    invalidCode: "Otaq kodu ən azı 4 simvoldan ibarət olmalıdır.",
-    joinLater: "Otaqlara qoşulma sistemi hələ hazırlanır."
-  },
+const SUPABASE_URL = "https://pgmjtimnnmcttdvfqcnw.supabase.co";
 
-  tr: {
-    about: "Hakkında",
-    roles: "Roller",
-    how: "Nasıl oynanır",
-    login: "Giriş yap",
-    signup: "Kayıt ol",
-    eyebrow: "Gece başlıyor. Kime güveneceksin?",
-    description: "Şehir uyurken mafya uyanır. Arkadaşlarınla bir araya gel, rolünü gizle ve gerçeği bul.",
-    play: "OYUNA BAŞLA",
-    create: "ODA OLUŞTUR",
-    haveCode: "Oda kodun var mı?",
-    join: "KATIL",
-    players: "OYUNCU",
-    languages: "DİL",
-    possibilities: "OLASILIK",
-    aboutLabel: "MAFIA HAKKINDA",
-    aboutTitle: "Güven en büyük riskindir.",
-    aboutDescription: "Her oyun farklı bir hikâyedir. Düşün, konuş, şüphelen ve doğru karar ver.",
-    feature1Title: "Strateji",
-    feature1Description: "Her karar oyunun kaderini değiştirebilir.",
-    feature2Title: "Çok oyunculu",
-    feature2Description: "Arkadaşlarınla özel odalarda veya rastgele oyuncularla oyna.",
-    feature3Title: "Gizli roller",
-    feature3Description: "Kimseye tamamen güvenme. Herkesin gizli bir amacı olabilir.",
-    rolesLabel: "OYUN ROLLERİ",
-    rolesTitle: "Senin rolün ne?",
-    rolesDescription: "Her rolün kendi amacı ve stratejisi vardır.",
-    mafiaType: "GİZLİ TEHLİKE",
-    mafiaDescription: "Gece şehrin kaderini etkilemeye çalışan grup.",
-    sheriffType: "ARAŞTIRMACI",
-    sheriffDescription: "Şüphelileri araştırır ve şehre yardım eder.",
-    doctorType: "KORUYUCU",
-    doctorDescription: "Her gece bir oyuncuyu korumaya çalışır.",
-    maniacType: "TEK OYUNCU",
-    maniacDescription: "Kendi stratejisiyle oyunda kalmaya çalışır.",
-    howLabel: "OYUN KURALLARI",
-    howTitle: "Oyun nasıl işler?",
-    step1Title: "Odaya katıl",
-    step1Description: "Arkadaşlarınla oda oluştur veya mevcut oyuna katıl.",
-    step2Title: "Rolünü öğren",
-    step2Description: "Sana gizli bir rol verilecek. Amacını belirle.",
-    step3Title: "Tartış",
-    step3Description: "Konuş, fikirlerini paylaş ve şüphelileri belirle.",
-    step4Title: "Karar ver",
-    step4Description: "Oylamaya katıl ve takımının kazanmasına yardım et.",
-    footerText: "Güvenme. Araştır. Karar ver.",
-    comingTitle: "Çok yakında",
-    comingDescription: "Bu özellik geliştiriliyor. Sonraki aşamada aktif olacak.",
-    emptyCode: "Lütfen oda kodunu gir.",
-    invalidCode: "Oda kodu en az 4 karakterden oluşmalıdır.",
-    joinLater: "Odalara katılma sistemi henüz hazırlanıyor."
-  },
+// auth.js faylındakı eyni publishable key-i bura yaz.
+const SUPABASE_KEY = "sb_publishable_o_Xk7py1CvvLlU3imqwiOA_ke2Rr-HU";
 
-  en: {
-    about: "About",
-    roles: "Roles",
-    how: "How to play",
-    login: "Login",
-    signup: "Sign up",
-    eyebrow: "The night begins. Who will you trust?",
-    description: "While the city sleeps, the mafia awakens. Gather your friends, hide your role and uncover the truth.",
-    play: "PLAY NOW",
-    create: "CREATE ROOM",
-    haveCode: "Have a room code?",
-    join: "JOIN",
-    players: "PLAYERS",
-    languages: "LANGUAGE",
-    possibilities: "POSSIBILITIES",
-    aboutLabel: "ABOUT MAFIA",
-    aboutTitle: "Trust is your greatest risk.",
-    aboutDescription: "Every game tells a different story. Think, talk, suspect and make the right decision.",
-    feature1Title: "Strategy",
-    feature1Description: "Every decision can change the fate of the game.",
-    feature2Title: "Multiplayer",
-    feature2Description: "Play in private rooms with friends or with random players.",
-    feature3Title: "Secret roles",
-    feature3Description: "Trust no one completely. Everyone may have a hidden purpose.",
-    rolesLabel: "GAME ROLES",
-    rolesTitle: "What is your role?",
-    rolesDescription: "Every role has its own objective and strategy.",
-    mafiaType: "HIDDEN THREAT",
-    mafiaDescription: "A group trying to influence the city's fate at night.",
-    sheriffType: "INVESTIGATOR",
-    sheriffDescription: "Investigates suspects and helps the city.",
-    doctorType: "PROTECTOR",
-    doctorDescription: "Tries to protect one player every night.",
-    maniacType: "LONE PLAYER",
-    maniacDescription: "Tries to stay in the game with a unique strategy.",
-    howLabel: "GAME RULES",
-    howTitle: "How does it work?",
-    step1Title: "Join a room",
-    step1Description: "Create a room with friends or join an existing game.",
-    step2Title: "Discover your role",
-    step2Description: "You will receive a secret role. Understand your objective.",
-    step3Title: "Discuss",
-    step3Description: "Talk, share your thoughts and identify suspects.",
-    step4Title: "Make a decision",
-    step4Description: "Vote and help your team win.",
-    footerText: "Trust no one. Investigate. Decide.",
-    comingTitle: "Coming soon",
-    comingDescription: "This feature is under development and will be available in a later phase.",
-    emptyCode: "Please enter a room code.",
-    invalidCode: "The room code must contain at least 4 characters.",
-    joinLater: "The room joining system is still under development."
-  }
-};
+const mafiaDB = window.supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_KEY
+);
 
 const languageSelect = document.getElementById("languageSelect");
 const mobileMenu = document.getElementById("mobileMenu");
@@ -170,6 +19,82 @@ const modalDescription = document.getElementById("modalDescription");
 const modalClose = document.getElementById("modalClose");
 
 let currentLanguage = "az";
+
+const roomTexts = {
+  az: {
+    createTitle: "OTAQ YARAT",
+    roomName: "Otağın adı",
+    maxPlayers: "Oyunçu sayı",
+    language: "Oyun dili",
+    createButton: "OTAĞI YARAT",
+    codeTitle: "OTAĞIN HAZIRDIR!",
+    yourCode: "Otaq kodun:",
+    copy: "KODU KOPYALA",
+    copied: "Kod kopyalandı!",
+    joinTitle: "OTAQ AXTARIŞI",
+    enterCode: "8 simvolluq otaq kodunu daxil et",
+    search: "OTAĞI AXTAR",
+    roomFound: "OTAQ TAPILDI",
+    roomFull: "Otaq doludur",
+    players: "Oyunçu",
+    joinRoom: "OTAĞA QOŞUL",
+    success: "Otağa uğurla qoşuldun!",
+    login: "Əvvəlcə hesabına daxil olmalısan.",
+    error: "Xəta baş verdi: ",
+    notFound: "Otaq tapılmadı və ya artıq aktiv deyil.",
+    loading: "GÖZLƏ..."
+  },
+  tr: {
+    createTitle: "ODA OLUŞTUR",
+    roomName: "Oda adı",
+    maxPlayers: "Oyuncu sayısı",
+    language: "Oyun dili",
+    createButton: "ODA OLUŞTUR",
+    codeTitle: "ODAN HAZIR!",
+    yourCode: "Oda kodun:",
+    copy: "KODU KOPYALA",
+    copied: "Kod kopyalandı!",
+    joinTitle: "ODA ARAMA",
+    enterCode: "8 karakterli oda kodunu gir",
+    search: "ODA ARA",
+    roomFound: "ODA BULUNDU",
+    roomFull: "Oda dolu",
+    players: "Oyuncu",
+    joinRoom: "ODAYA KATIL",
+    success: "Odaya başarıyla katıldın!",
+    login: "Önce hesabına giriş yapmalısın.",
+    error: "Hata oluştu: ",
+    notFound: "Oda bulunamadı veya artık aktif değil.",
+    loading: "BEKLE..."
+  },
+  en: {
+    createTitle: "CREATE ROOM",
+    roomName: "Room name",
+    maxPlayers: "Player limit",
+    language: "Game language",
+    createButton: "CREATE ROOM",
+    codeTitle: "YOUR ROOM IS READY!",
+    yourCode: "Room code:",
+    copy: "COPY CODE",
+    copied: "Code copied!",
+    joinTitle: "FIND A ROOM",
+    enterCode: "Enter the 8-character room code",
+    search: "FIND ROOM",
+    roomFound: "ROOM FOUND",
+    roomFull: "Room is full",
+    players: "Players",
+    joinRoom: "JOIN ROOM",
+    success: "You joined the room!",
+    login: "Please log in first.",
+    error: "An error occurred: ",
+    notFound: "Room not found or no longer available.",
+    loading: "PLEASE WAIT..."
+  }
+};
+
+function roomText(key) {
+  return roomTexts[currentLanguage]?.[key] || roomTexts.az[key];
+}
 
 function translatePage(language) {
   currentLanguage = translations[language] ? language : "az";
@@ -193,28 +118,44 @@ function translatePage(language) {
 function showModal(title, description) {
   if (!modal) return;
 
-  if (modalTitle) modalTitle.textContent = title;
-  if (modalDescription) modalDescription.textContent = description;
+  modalTitle.textContent = title;
+  modalDescription.textContent = description;
+  modal.classList.add("active");
+}
 
+function showRoomContent(title, html) {
+  if (!modal) return;
+
+  modalTitle.textContent = title;
+  modalDescription.innerHTML = html;
   modal.classList.add("active");
 }
 
 function closeModal() {
-  if (modal) modal.classList.remove("active");
+  modal?.classList.remove("active");
 }
 
 function message(key) {
   return translations[currentLanguage][key] || translations.az[key];
 }
 
-// Language selection
-if (languageSelect) {
-  languageSelect.addEventListener("change", event => {
-    translatePage(event.target.value);
-  });
+async function checkLogin() {
+  const { data, error } = await mafiaDB.auth.getUser();
+
+  if (error || !data.user) {
+    showModal(roomText("createTitle"), roomText("login"));
+    return false;
+  }
+
+  return true;
 }
 
-// Mobile navigation
+// LANGUAGE
+languageSelect?.addEventListener("change", event => {
+  translatePage(event.target.value);
+});
+
+// MOBILE MENU
 if (mobileMenu && navLinks) {
   mobileMenu.addEventListener("click", () => {
     navLinks.classList.toggle("active");
@@ -227,22 +168,18 @@ document.querySelectorAll(".nav-links a").forEach(link => {
   });
 });
 
-// Close modal
+// MODAL
 modalClose?.addEventListener("click", closeModal);
 
 modal?.addEventListener("click", event => {
-  if (event.target === modal) {
-    closeModal();
-  }
+  if (event.target === modal) closeModal();
 });
 
 document.addEventListener("keydown", event => {
-  if (event.key === "Escape") {
-    closeModal();
-  }
+  if (event.key === "Escape") closeModal();
 });
 
-// Play button
+// PLAY BUTTON
 document.getElementById("playBtn")?.addEventListener("click", () => {
   showModal(
     message("comingTitle"),
@@ -250,33 +187,208 @@ document.getElementById("playBtn")?.addEventListener("click", () => {
   );
 });
 
-// Create room button
-document.getElementById("createBtn")?.addEventListener("click", () => {
-  showModal(
-    message("comingTitle"),
-    message("comingDescription")
-  );
+// CREATE ROOM FORM
+document.getElementById("createBtn")?.addEventListener("click", async () => {
+  if (!(await checkLogin())) return;
+
+  showRoomContent(roomText("createTitle"), `
+    <form id="createRoomForm" style="display:flex;flex-direction:column;gap:14px;text-align:left;">
+
+      <label>${roomText("roomName")}</label>
+      <input id="newRoomName" type="text"
+        maxlength="40"
+        value="Mafia Room"
+        required
+        style="padding:12px;border-radius:8px;">
+
+      <label>${roomText("maxPlayers")}</label>
+      <select id="newRoomPlayers" style="padding:12px;border-radius:8px;">
+        ${Array.from({length: 7}, (_, i) =>
+          `<option value="${i + 6}" ${i === 6 ? "selected" : ""}>${i + 6}</option>`
+        ).join("")}
+      </select>
+
+      <label>${roomText("language")}</label>
+      <select id="newRoomLanguage" style="padding:12px;border-radius:8px;">
+        <option value="az">Azərbaycan</option>
+        <option value="tr">Türkçe</option>
+        <option value="en">English</option>
+      </select>
+
+      <button id="createRoomSubmit" type="submit"
+        style="padding:14px;background:#8e2633;color:white;border:0;border-radius:8px;cursor:pointer;">
+        ${roomText("createButton")}
+      </button>
+
+      <p id="roomMessage" style="color:#c6a15b;text-align:center;"></p>
+    </form>
+  `);
+
+  document.getElementById("createRoomForm").addEventListener("submit", async event => {
+    event.preventDefault();
+
+    const button = document.getElementById("createRoomSubmit");
+    const output = document.getElementById("roomMessage");
+
+    const roomName = document.getElementById("newRoomName").value.trim();
+    const maxPlayers = Number(document.getElementById("newRoomPlayers").value);
+    const language = document.getElementById("newRoomLanguage").value;
+
+    button.disabled = true;
+    button.textContent = roomText("loading");
+
+    try {
+      const { data, error } = await mafiaDB.rpc("create_room", {
+        p_room_name: roomName,
+        p_max_players: maxPlayers,
+        p_language: language
+      });
+
+      if (error) throw error;
+
+      showRoomContent(roomText("codeTitle"), `
+        <div style="text-align:center;padding:15px 0;">
+          <p>${roomText("yourCode")}</p>
+          <h2 id="createdRoomCode"
+            style="font-size:32px;letter-spacing:5px;color:#c6a15b;">
+          </h2>
+          <button id="copyRoomCode"
+            style="padding:13px;background:#8e2633;color:white;border:0;border-radius:8px;cursor:pointer;">
+            ${roomText("copy")}
+          </button>
+          <p id="copyMessage" style="color:#c6a15b;"></p>
+        </div>
+      `);
+
+      document.getElementById("createdRoomCode").textContent = data.room_code;
+
+      document.getElementById("copyRoomCode").addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText(data.room_code);
+          document.getElementById("copyMessage").textContent = roomText("copied");
+        } catch {
+          document.getElementById("copyMessage").textContent = data.room_code;
+        }
+      });
+
+    } catch (error) {
+      output.textContent = roomText("error") + error.message;
+      button.disabled = false;
+      button.textContent = roomText("createButton");
+    }
+  });
 });
 
-// Join room button
-document.getElementById("joinBtn")?.addEventListener("click", () => {
-  const roomCode = document.getElementById("roomCode");
-  const code = roomCode?.value.trim() || "";
+// JOIN ROOM: SEARCH
+document.getElementById("joinBtn")?.addEventListener("click", async () => {
+  if (!(await checkLogin())) return;
 
-  if (!code) {
-    showModal(message("comingTitle"), message("emptyCode"));
-    return;
-  }
+  showRoomContent(roomText("joinTitle"), `
+    <form id="findRoomForm" style="display:flex;flex-direction:column;gap:14px;">
+      <input id="roomSearchCode"
+        type="text"
+        maxlength="8"
+        minlength="8"
+        placeholder="${roomText("enterCode")}"
+        required
+        style="padding:14px;text-align:center;text-transform:uppercase;letter-spacing:4px;">
 
-  if (code.length < 4) {
-    showModal(message("comingTitle"), message("invalidCode"));
-    return;
-  }
+      <button id="findRoomSubmit" type="submit"
+        style="padding:14px;background:#8e2633;color:white;border:0;border-radius:8px;cursor:pointer;">
+        ${roomText("search")}
+      </button>
 
-  showModal(message("comingTitle"), message("joinLater"));
+      <p id="findRoomMessage" style="color:#c6a15b;text-align:center;"></p>
+    </form>
+  `);
+
+  document.getElementById("roomSearchCode").focus();
+
+  document.getElementById("roomSearchCode").addEventListener("input", event => {
+    event.target.value = event.target.value
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, "");
+  });
+
+  document.getElementById("findRoomForm").addEventListener("submit", async event => {
+    event.preventDefault();
+
+    const button = document.getElementById("findRoomSubmit");
+    const output = document.getElementById("findRoomMessage");
+    const code = document.getElementById("roomSearchCode").value.trim();
+
+    button.disabled = true;
+    button.textContent = roomText("loading");
+
+    try {
+      const { data, error } = await mafiaDB.rpc("find_room_by_code", {
+        p_room_code: code
+      });
+
+      if (error) throw error;
+
+      if (!data.success) {
+        output.textContent = roomText("notFound");
+        return;
+      }
+
+      if (data.is_full) {
+        output.textContent = roomText("roomFull");
+        return;
+      }
+
+      showRoomContent(roomText("roomFound"), `
+        <div style="text-align:center;padding:12px 0;">
+          <h3 id="foundRoomName" style="color:#c6a15b;"></h3>
+          <p id="foundRoomPlayers"></p>
+          <p id="foundRoomCode"></p>
+          <button id="joinRoomConfirm"
+            style="width:100%;padding:14px;background:#8e2633;color:white;border:0;border-radius:8px;cursor:pointer;">
+            ${roomText("joinRoom")}
+          </button>
+          <p id="joinRoomMessage" style="color:#c6a15b;"></p>
+        </div>
+      `);
+
+      document.getElementById("foundRoomName").textContent = data.room_name;
+      document.getElementById("foundRoomPlayers").textContent =
+        `${roomText("players")}: ${data.player_count}/${data.max_players}`;
+      document.getElementById("foundRoomCode").textContent = data.room_code;
+
+      document.getElementById("joinRoomConfirm").addEventListener("click", async () => {
+        const joinButton = document.getElementById("joinRoomConfirm");
+        const joinMessage = document.getElementById("joinRoomMessage");
+
+        joinButton.disabled = true;
+        joinButton.textContent = roomText("loading");
+
+        try {
+          const { data: joinData, error: joinError } = await mafiaDB.rpc("join_room", {
+            p_room_code: code
+          });
+
+          if (joinError) throw joinError;
+
+          joinMessage.textContent = roomText("success");
+          console.log("ROOM JOINED:", joinData);
+
+        } catch (error) {
+          joinMessage.textContent = roomText("error") + error.message;
+          joinButton.disabled = false;
+          joinButton.textContent = roomText("joinRoom");
+        }
+      });
+
+    } catch (error) {
+      output.textContent = roomText("error") + error.message;
+    } finally {
+      button.disabled = false;
+      button.textContent = roomText("search");
+    }
+  });
 });
 
-// Initial language
+// INITIAL LANGUAGE
 translatePage(languageSelect?.value || "az");
 
 console.log("MAFIA website initialized.");
