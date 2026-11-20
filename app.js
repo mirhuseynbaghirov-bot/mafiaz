@@ -2,7 +2,7 @@
 /* =========================================
    MAFIA — APP.JS
    Room creation, joining, lobby,
-   ready system & game settings
+   ready system, game settings & role system
 ========================================= */
 
 (() => {
@@ -55,7 +55,7 @@
   const lobbyStartMessage = $("lobbyStartMessage");
   const startGameBtn = $("startGameBtn");
 
-  /* GAME SETTINGS ELEMENTS */
+  /* GAME SETTINGS */
 
   const gameMafiaCount = $("gameMafiaCount");
   const gameDoctorCount = $("gameDoctorCount");
@@ -95,6 +95,7 @@
   let currentPlayers = [];
   let isUpdatingReady = false;
   let isSavingGameSettings = false;
+  let isStartingGame = false;
 
   let readyButton = null;
 
@@ -102,6 +103,20 @@
     az: "Azərbaycan dili",
     tr: "Türkçe",
     en: "English"
+  };
+
+  const roleNames = {
+    mafia: "MAFİYA",
+    doctor: "HƏKİM",
+    detective: "DETEKTİV",
+    civilian: "MÜLKİ SAKİN"
+  };
+
+  const roleDescriptions = {
+    mafia: "Sən mafiyasansa. Şəhərdəki digər oyunçular bunu bilməməlidir.",
+    doctor: "Sən həkimsən. Gecələr bir oyunçunu qorumaq sənin vəzifəndir.",
+    detective: "Sən detektivsən. Şübhəli oyunçuları araşdırmaq sənin vəzifəndir.",
+    civilian: "Sən mülki sakinsən. Müzakirələrdə iştirak et və mafiyanı tapmağa çalış."
   };
 
   /* =========================================
@@ -572,6 +587,11 @@
     await refreshLobbyPlayers();
 
     subscribeToRoomChanges();
+
+    // Oyun artıq başlayıbsa, oyunçu öz rolunu görə bilsin.
+    if (activeRoom.status === "playing") {
+      await displayMyRole();
+    }
   }
 
   /* =========================================
@@ -603,7 +623,7 @@
 
     if (lobbyStatus) {
       lobbyStatus.textContent =
-        activeRoom.status === "started"
+        activeRoom.status === "playing"
           ? "Oyun başladı"
           : "Oyunçular gözlənilir";
     }
@@ -615,6 +635,7 @@
     }
 
     updateGameSettingsPermissions();
+    updateReadyButton();
   }
 
   /* =========================================
@@ -658,25 +679,11 @@
 
     const settings = getGameSettings();
 
-    if (gameMafiaCount) {
-      gameMafiaCount.value = String(settings.mafia);
-    }
-
-    if (gameDoctorCount) {
-      gameDoctorCount.value = String(settings.doctor);
-    }
-
-    if (gameDetectiveCount) {
-      gameDetectiveCount.value = String(settings.detective);
-    }
-
-    if (gameDiscussionTime) {
-      gameDiscussionTime.value = String(settings.discussion_seconds);
-    }
-
-    if (gameVotingTime) {
-      gameVotingTime.value = String(settings.voting_seconds);
-    }
+    if (gameMafiaCount) gameMafiaCount.value = String(settings.mafia);
+    if (gameDoctorCount) gameDoctorCount.value = String(settings.doctor);
+    if (gameDetectiveCount) gameDetectiveCount.value = String(settings.detective);
+    if (gameDiscussionTime) gameDiscussionTime.value = String(settings.discussion_seconds);
+    if (gameVotingTime) gameVotingTime.value = String(settings.voting_seconds);
 
     updateGameSettingsSummary();
     updateGameSettingsPermissions();
@@ -697,7 +704,6 @@
       settings.detective;
 
     const maxPlayers = Number(activeRoom?.max_players || 8);
-
     const civilians = Math.max(0, maxPlayers - specialRoles);
 
     if (gameSpecialRoleCount) {
@@ -738,10 +744,7 @@
     if (!gameSettingsMessage) return;
 
     gameSettingsMessage.textContent = message;
-    gameSettingsMessage.classList.remove(
-      "success",
-      "error"
-    );
+    gameSettingsMessage.classList.remove("success", "error");
 
     if (type) {
       gameSettingsMessage.classList.add(type);
@@ -839,7 +842,6 @@
     }
 
     updateGameSettingsPermissions();
-
     setGameSettingsMessage("Ayarlar yadda saxlanılır...");
 
     try {
@@ -896,7 +898,6 @@
     if ($("mafiaReadyStyles")) return;
 
     const style = document.createElement("style");
-
     style.id = "mafiaReadyStyles";
 
     style.textContent = `
@@ -956,8 +957,6 @@
       .lobby-ready-label.not-ready {
         color: #c78a8a;
       }
-
-      /* GAME SETTINGS */
 
       .game-settings-card .settings-description {
         margin: 8px 0 18px;
@@ -1076,7 +1075,6 @@
     if (readyButton && readyButton.isConnected) return;
 
     readyButton = document.createElement("button");
-
     readyButton.type = "button";
     readyButton.id = "readyButton";
     readyButton.className = "mafia-ready-btn";
@@ -1106,12 +1104,18 @@
 
     const myPlayer = getCurrentPlayer();
     const isReady = Boolean(myPlayer?.is_ready);
+    const gameStarted = activeRoom?.status === "playing";
 
-    readyButton.disabled = !myPlayer || isUpdatingReady;
+    readyButton.disabled =
+      !myPlayer ||
+      isUpdatingReady ||
+      gameStarted;
 
     readyButton.classList.toggle("is-ready", isReady);
 
-    if (isUpdatingReady) {
+    if (gameStarted) {
+      readyButton.textContent = "OYUN BAŞLAYIB";
+    } else if (isUpdatingReady) {
       readyButton.textContent = "GÖZLƏYİN...";
     } else {
       readyButton.textContent = isReady
@@ -1125,7 +1129,12 @@
   ========================================= */
 
   async function toggleReadyStatus() {
-    if (!activeRoomId || !currentUser || isUpdatingReady) {
+    if (
+      !activeRoomId ||
+      !currentUser ||
+      isUpdatingReady ||
+      activeRoom?.status !== "waiting"
+    ) {
       return;
     }
 
@@ -1183,33 +1192,44 @@
     if (!startGameBtn) return;
 
     const count = players.length;
-
     const enoughPlayers = count >= MIN_PLAYERS;
 
     const allReady =
       enoughPlayers &&
       players.every((player) => Boolean(player.is_ready));
 
-    const canStart = isRoomHost && enoughPlayers && allReady;
+    const gameStarted = activeRoom?.status === "playing";
+
+    const canStart =
+      isRoomHost &&
+      enoughPlayers &&
+      allReady &&
+      !gameStarted &&
+      !isStartingGame;
 
     startGameBtn.disabled = !canStart;
 
-    if (!isRoomHost) {
+    if (gameStarted) {
+      startGameBtn.textContent = "OYUN BAŞLAYIB";
+    } else if (isStartingGame) {
+      startGameBtn.textContent = "OYUN BAŞLADILIR...";
+    } else if (!isRoomHost) {
       startGameBtn.textContent = "HOST OYUNU BAŞLADACAQ";
-
     } else if (!enoughPlayers) {
       startGameBtn.textContent = "OYUNÇULAR GÖZLƏNİLİR";
-
     } else if (!allReady) {
       startGameBtn.textContent = "HAZIRLIQ GÖZLƏNİLİR";
-
     } else {
       startGameBtn.textContent = "OYUNU BAŞLAT →";
     }
 
     if (!lobbyStartMessage) return;
 
-    if (!isRoomHost) {
+    if (gameStarted) {
+      lobbyStartMessage.textContent =
+        "Oyun başladı. Rolunuzu yoxlayın.";
+
+    } else if (!isRoomHost) {
       lobbyStartMessage.textContent =
         "Oyunun başlamasını otaq sahibi idarə edir.";
 
@@ -1329,7 +1349,6 @@
           ${isHost ? "is-host" : ""}
           ${isReady ? "is-ready" : "is-not-ready"}
         ">
-
           <div class="lobby-player-avatar">
             ${escapeHTML(avatarLetter)}
           </div>
@@ -1351,7 +1370,6 @@
               ? '<span class="lobby-player-host-label">HOST</span>'
               : ""
           }
-
         </div>
       `;
     });
@@ -1372,6 +1390,141 @@
       ...playerCards,
       ...emptySlots
     ].join("");
+  }
+
+  /* =========================================
+     ROLE SYSTEM
+  ========================================= */
+
+  async function displayMyRole() {
+    if (!activeRoomId || !currentUser) return;
+
+    try {
+      // RLS siyasətinə görə yalnız öz rolumuzu oxuya bilərik.
+      const { data, error } = await mafiaDB
+        .from("room_player_roles")
+        .select("role")
+        .eq("room_id", activeRoomId)
+        .eq("user_id", currentUser.id)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (!data?.role || !ROLE_NAMES_VALID(data.role)) {
+        showMessage(
+          "Rol tapılmadı",
+          "Rol məlumatınız hələ yüklənməyib. Bir neçə saniyə sonra səhifəni yeniləyin."
+        );
+        return;
+      }
+
+      const role = data.role;
+      const roleName = roleNames[role];
+      const description = roleDescriptions[role];
+
+      showModal(
+        `SƏNİN ROLUN: ${roleName}`,
+        description
+      );
+
+    } catch (error) {
+      console.error("Rol yüklənmə xətası:", error);
+
+      showMessage(
+        "Rol yüklənmədi",
+        error.message || "Rol məlumatını əldə etmək mümkün olmadı."
+      );
+    }
+  }
+
+  function ROLE_NAMES_VALID(role) {
+    return Object.prototype.hasOwnProperty.call(roleNames, role);
+  }
+
+  /* =========================================
+     START GAME
+  ========================================= */
+
+  async function handleStartGame() {
+    if (!isRoomHost || isStartingGame) return;
+
+    if (!activeRoomId || !activeRoom) {
+      showMessage("Xəta", "Otaq məlumatları tapılmadı.");
+      return;
+    }
+
+    if (activeRoom.status !== "waiting") {
+      showMessage("Məlumat", "Bu oyunun artıq başladığı görünür.");
+      return;
+    }
+
+    const enoughPlayers =
+      currentPlayers.length >= MIN_PLAYERS;
+
+    const allReady =
+      enoughPlayers &&
+      currentPlayers.every(
+        (player) => Boolean(player.is_ready)
+      );
+
+    if (!enoughPlayers) {
+      showMessage(
+        "Oyunçu sayı azdır",
+        `Oyuna başlamaq üçün ən azı ${MIN_PLAYERS} oyunçu lazımdır.`
+      );
+      return;
+    }
+
+    if (!allReady) {
+      showMessage(
+        "Oyunçular hazır deyil",
+        "Oyunu başlamaq üçün bütün oyunçular hazır olmalıdır."
+      );
+      return;
+    }
+
+    isStartingGame = true;
+    updateStartButton();
+
+    try {
+      // Rollar server tərəfində təsadüfi paylanır.
+      const { data, error } = await mafiaDB.rpc(
+        "start_mafia_game",
+        {
+          p_room_id: activeRoomId
+        }
+      );
+
+      if (error) throw error;
+
+      if (data === false) {
+        throw new Error("Oyun başlatıla bilmədi.");
+      }
+
+      // Otağın yeni statusunu yenilə.
+      activeRoom = {
+        ...activeRoom,
+        status: "playing"
+      };
+
+      renderLobby();
+      updateStartButton();
+
+      // Host da yalnız öz rolunu oxuyur.
+      await displayMyRole();
+
+    } catch (error) {
+      console.error("Oyuna başlama xətası:", error);
+
+      showMessage(
+        "Oyuna başlamaq mümkün olmadı",
+        error.message || "Naməlum xəta baş verdi."
+      );
+
+    } finally {
+      isStartingGame = false;
+      updateStartButton();
+    }
   }
 
   /* =========================================
@@ -1416,15 +1569,26 @@
           table: "rooms",
           filter: `id=eq.${activeRoomId}`
         },
-        (payload) => {
-          if (payload.new) {
-            activeRoom = {
-              ...activeRoom,
-              ...payload.new
-            };
+        async (payload) => {
+          if (!payload.new) return;
 
-            renderLobby();
-            renderGameSettings();
+          const previousStatus = activeRoom?.status;
+
+          activeRoom = {
+            ...activeRoom,
+            ...payload.new
+          };
+
+          renderLobby();
+          renderGameSettings();
+          updateStartButton();
+
+          // Oyun yeni başlayıbsa, hər oyunçu öz rolunu açır.
+          if (
+            previousStatus !== "playing" &&
+            activeRoom.status === "playing"
+          ) {
+            await displayMyRole();
           }
         }
       )
@@ -1459,7 +1623,6 @@
 
       if (button) {
         const oldText = button.textContent;
-
         button.textContent = "Kopyalandı!";
 
         setTimeout(() => {
@@ -1522,6 +1685,7 @@
       isRoomHost = false;
       isUpdatingReady = false;
       isSavingGameSettings = false;
+      isStartingGame = false;
 
       if (readyButton) {
         readyButton.remove();
@@ -1538,46 +1702,6 @@
         "Otaqdan çıxarkən xəta baş verdi."
       );
     }
-  }
-
-  /* =========================================
-     START GAME
-  ========================================= */
-
-  function handleStartGame() {
-    if (!isRoomHost) return;
-
-    const enoughPlayers =
-      currentPlayers.length >= MIN_PLAYERS;
-
-    const allReady =
-      enoughPlayers &&
-      currentPlayers.every(
-        (player) => Boolean(player.is_ready)
-      );
-
-    if (!enoughPlayers) {
-      showMessage(
-        "Oyunçu sayı azdır",
-        `Oyuna başlamaq üçün ən azı ${MIN_PLAYERS} oyunçu lazımdır.`
-      );
-
-      return;
-    }
-
-    if (!allReady) {
-      showMessage(
-        "Oyunçular hazır deyil",
-        "Oyunu başlamaq üçün bütün oyunçular hazır olmalıdır."
-      );
-
-      return;
-    }
-
-    showMessage(
-      "Hazırlıq tamamlandı!",
-      "Bütün oyunçular hazırdır. Növbəti mərhələdə oyun başlatma mexanikasını əlavə edəcəyik."
-    );
   }
 
   /* =========================================
@@ -1635,7 +1759,6 @@
         "Giriş tələb olunur",
         "Otaq yaratmaq üçün hesabınıza daxil olun."
       );
-
       return;
     }
 
@@ -1650,7 +1773,6 @@
         "Giriş tələb olunur",
         "Otağa qoşulmaq üçün hesabınıza daxil olun."
       );
-
       return;
     }
 
@@ -1673,7 +1795,6 @@
   });
 
   $("copyLobbyCode")?.addEventListener("click", copyRoomCode);
-
   $("leaveRoomBtn")?.addEventListener("click", leaveRoom);
 
   startGameBtn?.addEventListener("click", handleStartGame);
