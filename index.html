@@ -480,6 +480,149 @@
 
     </section>
 
+
+<!-- GAME SCREEN -->
+<section class="game-screen" id="gameScreen" hidden>
+
+    <div class="game-container">
+
+        <!-- HEADER -->
+        <header class="game-header">
+            <div>
+                <span class="game-eyebrow">MAFIA EXPERIENCE</span>
+                <h1 id="gameRoomName">GECƏ ŞƏHƏRİ</h1>
+            </div>
+
+            <div class="game-header-info">
+                <span id="gameRound">GECƏ 1</span>
+                <span id="gamePhase">GECƏ MƏRHƏLƏSİ</span>
+            </div>
+
+            <button id="gameLeaveBtn" type="button">
+                OTAQDAN ÇIX
+            </button>
+        </header>
+
+        <!-- STATUS -->
+        <div class="game-status-bar">
+            <div>
+                <span>İŞTİRAKÇILAR</span>
+                <strong id="gamePlayerCount">0</strong>
+            </div>
+
+            <div>
+                <span>CANLI</span>
+                <strong id="gameAliveCount">0</strong>
+            </div>
+
+            <div>
+                <span>MƏRHƏLƏ</span>
+                <strong id="gamePhaseStatus">Gözlənilir</strong>
+            </div>
+        </div>
+
+        <!-- MAIN GAME -->
+        <div class="game-main">
+
+            <!-- PLAYERS -->
+            <section class="game-players-section">
+                <div class="game-section-heading">
+                    <div>
+                        <span>THE CITY</span>
+                        <h2>Oyunçular</h2>
+                    </div>
+                    <span class="game-live-label">● LIVE</span>
+                </div>
+
+                <div class="game-players-grid" id="gamePlayers">
+                    <!-- Oyunçular JavaScript ilə əlavə ediləcək -->
+                </div>
+            </section>
+
+            <!-- SIDEBAR -->
+            <aside class="game-sidebar">
+
+                <!-- MY ROLE -->
+                <div class="game-role-card">
+                    <span class="game-card-label">YOUR IDENTITY</span>
+                    <div class="game-role-symbol" id="myRoleSymbol">♟</div>
+                    <h2 id="myRoleName">ROLUNUZ</h2>
+                    <p id="myRoleDescription">
+                        Rol məlumatınız yüklənir...
+                    </p>
+                </div>
+
+                <!-- ACTION PANEL -->
+                <div class="game-action-card">
+                    <span class="game-card-label">YOUR ACTION</span>
+
+                    <h3 id="gameActionTitle">Gözləyin...</h3>
+
+                    <p id="gameActionDescription">
+                        Oyun mərhələsi başladıqda burada hərəkət edə biləcəksiniz.
+                    </p>
+
+                    <div id="gameTargetList" class="game-target-list">
+                        <!-- Hədəflər JavaScript ilə əlavə ediləcək -->
+                    </div>
+
+                    <button
+                        id="gameActionBtn"
+                        type="button"
+                        disabled
+                    >
+                        GÖZLƏYİN
+                    </button>
+
+                    <p
+                        id="gameActionMessage"
+                        class="game-action-message"
+                        aria-live="polite"
+                    ></p>
+                </div>
+
+            </aside>
+        </div>
+
+        <!-- HOST CONTROLS -->
+        <div class="game-host-controls" id="gameHostControls" hidden>
+
+            <span class="game-card-label">HOST CONTROL</span>
+
+            <h3>Oyun idarəetməsi</h3>
+
+            <p>
+                Mərhələni yalnız otaq sahibi tamamlaya bilər.
+            </p>
+
+            <button id="finishNightBtn" type="button" hidden>
+                GECƏNİ TAMAMLA
+            </button>
+
+            <button id="finishVotingBtn" type="button" hidden>
+                SƏSVERMƏNİ TAMAMLA
+            </button>
+
+        </div>
+
+        <!-- GAME MESSAGE -->
+        <div class="game-announcement" id="gameAnnouncement" hidden>
+            <span id="gameAnnouncementIcon">♟</span>
+            <h2 id="gameAnnouncementTitle"></h2>
+            <p id="gameAnnouncementText"></p>
+        </div>
+
+        <!-- FOOTER -->
+        <footer class="game-footer">
+            <span>MAFIA. — TRUST NO ONE.</span>
+            <span id="gameRoomCodeDisplay"></span>
+        </footer>
+
+    </div>
+
+</section>
+
+
     <!-- FOOTER -->
     <footer class="footer" id="mainFooter">
 
