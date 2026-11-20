@@ -2578,3 +2578,463 @@ html {
 .room-preview p {
     margin: 6px 0;
 }
+
+
+
+/* =========================================
+   MAFIA — GAME SCREEN
+========================================= */
+
+.game-screen {
+    min-height: 100vh;
+    padding: 35px 20px;
+    background:
+        radial-gradient(circle at 50% 0%, rgba(152, 43, 61, 0.13), transparent 38%),
+        #09090c;
+    color: #f5f1ed;
+}
+
+.game-container {
+    width: 100%;
+    max-width: 1250px;
+    margin: 0 auto;
+}
+
+/* HEADER */
+
+.game-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    padding-bottom: 25px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.game-eyebrow,
+.game-card-label,
+.game-section-heading > div > span {
+    display: block;
+    color: #a17618;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+}
+
+.game-header h1 {
+    margin: 0;
+    font-size: clamp(22px, 4vw, 34px);
+    letter-spacing: 2px;
+}
+
+.game-header-info {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.game-header-info span {
+    padding: 9px 13px;
+    border-radius: 8px;
+    background: #17161c;
+    color: #d6c6a4;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+#gameLeaveBtn {
+    padding: 11px 16px;
+    border: 1px solid rgba(196,68,85,0.4);
+    border-radius: 8px;
+    background: rgba(152,43,61,0.12);
+    color: #e27b88;
+    font-size: 11px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+#gameLeaveBtn:hover {
+    background: #982b3d;
+    color: white;
+}
+
+/* STATUS BAR */
+
+.game-status-bar {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+    margin: 25px 0;
+}
+
+.game-status-bar > div {
+    padding: 17px 20px;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px;
+    background: #111116;
+}
+
+.game-status-bar span {
+    display: block;
+    color: #85818b;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    margin-bottom: 7px;
+}
+
+.game-status-bar strong {
+    font-size: 23px;
+    color: #f0e7dc;
+}
+
+/* MAIN LAYOUT */
+
+.game-main {
+    display: grid;
+    grid-template-columns: minmax(0, 1.6fr) minmax(280px, 0.8fr);
+    gap: 22px;
+    align-items: start;
+}
+
+.game-players-section,
+.game-sidebar > div,
+.game-host-controls,
+.game-announcement {
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 15px;
+    background: #111116;
+}
+
+.game-players-section {
+    padding: 24px;
+}
+
+.game-section-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 22px;
+}
+
+.game-section-heading > div > span {
+    margin-bottom: 5px;
+}
+
+.game-section-heading h2 {
+    margin: 0;
+    font-size: 23px;
+}
+
+.game-live-label {
+    color: #65bd86;
+    font-size: 11px;
+    font-weight: 800;
+}
+
+/* PLAYER GRID */
+
+.game-players-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 13px;
+}
+
+.game-player-card {
+    position: relative;
+    min-height: 145px;
+    padding: 17px 12px;
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 12px;
+    background: #19181f;
+    text-align: center;
+    transition: 0.2s;
+}
+
+.game-player-card:hover {
+    border-color: rgba(161,118,24,0.5);
+    transform: translateY(-2px);
+}
+
+.game-player-avatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 43px;
+    height: 43px;
+    margin: 0 auto 10px;
+    border-radius: 50%;
+    background: #29232a;
+    color: #c99d48;
+    font-size: 19px;
+}
+
+.game-player-name {
+    display: block;
+    overflow: hidden;
+    color: #eee8e2;
+    font-size: 12px;
+    font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.game-player-status {
+    display: inline-block;
+    margin-top: 8px;
+    color: #70bd8b;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.game-player-card.dead {
+    opacity: 0.4;
+    filter: grayscale(1);
+}
+
+.game-player-card.selected {
+    border-color: #c44455;
+    background: rgba(152,43,61,0.15);
+    box-shadow: 0 0 0 1px rgba(196,68,85,0.2);
+}
+
+/* SIDEBAR */
+
+.game-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.game-role-card,
+.game-action-card {
+    padding: 23px;
+}
+
+.game-role-symbol {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 65px;
+    height: 65px;
+    margin: 18px auto;
+    border: 1px solid rgba(161,118,24,0.35);
+    border-radius: 50%;
+    background: rgba(161,118,24,0.09);
+    color: #c99d48;
+    font-size: 29px;
+}
+
+.game-role-card h2 {
+    margin: 0;
+    text-align: center;
+    font-size: 23px;
+}
+
+.game-role-card p {
+    margin: 10px 0 0;
+    color: #99939b;
+    font-size: 12px;
+    line-height: 1.7;
+    text-align: center;
+}
+
+.game-action-card h3 {
+    margin: 13px 0 8px;
+    font-size: 19px;
+}
+
+.game-action-card > p {
+    color: #99939b;
+    font-size: 12px;
+    line-height: 1.6;
+}
+
+/* TARGET BUTTONS */
+
+.game-target-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 17px 0;
+}
+
+.game-target-btn {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 8px;
+    background: #1b1a21;
+    color: #e8e0d9;
+    font-size: 12px;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.game-target-btn:hover,
+.game-target-btn.selected {
+    border-color: #a17618;
+    background: rgba(161,118,24,0.12);
+}
+
+#gameActionBtn {
+    width: 100%;
+    padding: 14px;
+    border: none;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #982b3d, #681b2b);
+    color: white;
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+#gameActionBtn:hover:not(:disabled) {
+    filter: brightness(1.2);
+    transform: translateY(-1px);
+}
+
+#gameActionBtn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.game-action-message {
+    color: #c99d48;
+    font-size: 11px;
+}
+
+/* HOST CONTROLS */
+
+.game-host-controls {
+    margin-top: 22px;
+    padding: 23px;
+}
+
+.game-host-controls h3 {
+    margin: 5px 0;
+}
+
+.game-host-controls p {
+    color: #99939b;
+    font-size: 12px;
+}
+
+.game-host-controls button {
+    margin: 10px 8px 0 0;
+    padding: 13px 19px;
+    border: none;
+    border-radius: 8px;
+    background: #982b3d;
+    color: white;
+    font-size: 11px;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+/* ANNOUNCEMENT */
+
+.game-announcement {
+    margin-top: 22px;
+    padding: 25px;
+    border-color: rgba(161,118,24,0.25);
+    text-align: center;
+}
+
+#gameAnnouncementIcon {
+    display: block;
+    color: #c99d48;
+    font-size: 30px;
+}
+
+.game-announcement h2 {
+    margin: 12px 0 7px;
+}
+
+.game-announcement p {
+    color: #aaa2a8;
+    font-size: 13px;
+    line-height: 1.7;
+}
+
+/* FOOTER */
+
+.game-footer {
+    display: flex;
+    justify-content: space-between;
+    gap: 15px;
+    margin-top: 35px;
+    padding: 20px 0;
+    border-top: 1px solid rgba(255,255,255,0.07);
+    color: #77717b;
+    font-size: 10px;
+    letter-spacing: 1px;
+}
+
+/* RESPONSIVE */
+
+@media (max-width: 850px) {
+    .game-main {
+        grid-template-columns: 1fr;
+    }
+
+    .game-sidebar {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 600px) {
+    .game-screen {
+        padding: 22px 13px;
+    }
+
+    .game-header {
+        flex-wrap: wrap;
+    }
+
+    .game-header-info {
+        order: 3;
+        width: 100%;
+    }
+
+    .game-status-bar {
+        gap: 8px;
+    }
+
+    .game-status-bar > div {
+        padding: 13px 10px;
+    }
+
+    .game-status-bar strong {
+        font-size: 19px;
+    }
+
+    .game-status-bar span {
+        font-size: 8px;
+    }
+
+    .game-players-section {
+        padding: 17px 12px;
+    }
+
+    .game-players-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 9px;
+    }
+
+    .game-sidebar {
+        grid-template-columns: 1fr;
+    }
+
+    .game-footer {
+        flex-direction: column;
+    }
+}
