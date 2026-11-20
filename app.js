@@ -601,7 +601,7 @@
 
     subscribeToRoomChanges();
 
-    if (activeRoom.status === "playing") {
+    if (activeRoom.status === "in_progress") {
       await displayMyRole();
     }
   }
@@ -635,7 +635,7 @@
 
     if (lobbyStatus) {
       lobbyStatus.textContent =
-        activeRoom.status === "playing"
+        activeRoom.status === "in_progress"
           ? "Oyun başladı"
           : "Oyunçular gözlənilir";
     }
@@ -1135,7 +1135,7 @@
 
     const myPlayer = getCurrentPlayer();
     const isReady = Boolean(myPlayer?.is_ready);
-    const gameStarted = activeRoom?.status === "playing";
+    const gameStarted = activeRoom?.status === "in_progress";
 
     readyButton.disabled =
       !myPlayer ||
@@ -1311,7 +1311,7 @@
       enoughPlayers &&
       players.every((player) => Boolean(player.is_ready));
 
-    const gameStarted = activeRoom?.status === "playing";
+    const gameStarted = activeRoom?.status === "in_progress";
 
     const canStart =
       isRoomHost &&
@@ -1660,7 +1660,7 @@
 
       activeRoom = {
         ...activeRoom,
-        status: "playing"
+        status: "in_progress"
       };
 
       renderLobby();
@@ -1748,8 +1748,8 @@
           updateStartButton();
 
           if (
-            previousStatus !== "playing" &&
-            activeRoom.status === "playing"
+            previousStatus !== "in_progress" &&
+            activeRoom.status === "in_progress"
           ) {
             await displayMyRole();
           }
