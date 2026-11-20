@@ -2028,6 +2028,7 @@ let gameParticipants = [];
 let gameRefreshTimer = null;
 let gameRealtimeChannel = null;
 let gameActionSubmitted = false;
+let renderedGamePhaseKey = null;
 
 const GAME_ROLE_INFO = {
     mafia: {
@@ -2243,12 +2244,17 @@ function renderGameState() {
         return;
     }
 
+const phaseKey = `${phase}-${round}`;
+
+if (renderedGamePhaseKey !== phaseKey) {
+    renderedGamePhaseKey = phaseKey;
+
     if (phase === "night") {
         renderNightActions();
     } else if (phase === "day") {
         renderVoting();
     }
-
+}
     const hostControls = $("gameHostControls");
     if (hostControls) hostControls.hidden = !isRoomHost;
 
