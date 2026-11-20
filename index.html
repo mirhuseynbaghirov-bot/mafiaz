@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="az">
 <head>
@@ -45,13 +46,8 @@
                 <option value="en">EN</option>
             </select>
 
-            <button class="login-btn" id="loginBtn" data-i18n="login">
-                Log in
-            </button>
-
-            <button class="signup-btn" id="signupBtn" data-i18n="signup">
-                Sign up
-            </button>
+            <button class="login-btn" id="loginBtn" data-i18n="login">Log in</button>
+            <button class="signup-btn" id="signupBtn" data-i18n="signup">Sign up</button>
         </div>
 
         <button class="mobile-menu" id="mobileMenu" aria-label="Open menu">
@@ -99,9 +95,7 @@
                 </div>
 
                 <div class="join-room">
-                    <span class="join-label" data-i18n="haveCode">
-                        HAVE A ROOM CODE?
-                    </span>
+                    <span class="join-label" data-i18n="haveCode">HAVE A ROOM CODE?</span>
 
                     <div class="join-input-group">
                         <input
@@ -138,9 +132,7 @@
                 </div>
             </div>
 
-            <div class="hero-side-text">
-                EST. AFTER DARK — TRUST NO ONE
-            </div>
+            <div class="hero-side-text">EST. AFTER DARK — TRUST NO ONE</div>
         </section>
 
         <!-- ABOUT -->
@@ -190,9 +182,7 @@
             <div class="section-heading">
                 <span class="section-label" data-i18n="rolesLabel">CHOOSE YOUR DESTINY</span>
                 <h2 data-i18n="rolesTitle">WHO ARE YOU?</h2>
-                <p data-i18n="rolesDescription">
-                    Your identity is your biggest secret.
-                </p>
+                <p data-i18n="rolesDescription">Your identity is your biggest secret.</p>
             </div>
 
             <div class="roles-grid">
@@ -271,9 +261,7 @@
 
     </main>
 
-    <!-- =========================================
-         GAME LOBBY
-    ========================================== -->
+    <!-- GAME LOBBY -->
     <section class="lobby-screen" id="lobbyScreen" hidden>
 
         <div class="lobby-container">
@@ -298,7 +286,6 @@
 
                 <div class="lobby-info-item">
                     <span>OTAQ KODU</span>
-
                     <div class="lobby-code-wrapper">
                         <strong id="lobbyRoomCode">--------</strong>
                         <button id="copyLobbyCode" type="button">COPY</button>
@@ -340,11 +327,7 @@
                         </span>
                     </div>
 
-                    <div class="lobby-players-grid" id="lobbyPlayers">
-
-                        <!-- JavaScript oyunçu kartlarını burada yaradacaq -->
-
-                    </div>
+                    <div class="lobby-players-grid" id="lobbyPlayers"></div>
 
                     <div class="lobby-waiting-message" id="lobbyWaitingMessage">
                         <span>♟</span>
@@ -370,26 +353,89 @@
                     </div>
 
                     <!-- GAME SETTINGS -->
-                    <div class="lobby-rules-card">
+                    <div class="lobby-rules-card game-settings-card">
 
                         <span class="lobby-card-label">GAME SETTINGS</span>
 
-                        <h3>Oyun qaydaları</h3>
+                        <h3>Oyun ayarları</h3>
 
-                        <div class="lobby-rule">
-                            <span>Minimum oyunçu</span>
-                            <strong>6</strong>
+                        <p class="settings-description">
+                            Oyunun qaydalarını öz zövqünə uyğunlaşdır.
+                        </p>
+
+                        <div class="game-setting-row">
+                            <label for="gameMafiaCount">Mafiya sayı</label>
+                            <select id="gameMafiaCount">
+                                <option value="1">1</option>
+                                <option value="2">2</option>
+                                <option value="3">3</option>
+                                <option value="4">4</option>
+                            </select>
                         </div>
 
-                        <div class="lobby-rule">
-                            <span>Maksimum oyunçu</span>
-                            <strong id="lobbyMaxPlayers">8</strong>
+                        <div class="game-setting-row">
+                            <label for="gameDoctorCount">Həkim sayı</label>
+                            <select id="gameDoctorCount">
+                                <option value="0">0</option>
+                                <option value="1" selected>1</option>
+                                <option value="2">2</option>
+                            </select>
                         </div>
 
-                        <div class="lobby-rule">
-                            <span>Oyun rejimi</span>
-                            <strong>CLASSIC</strong>
+                        <div class="game-setting-row">
+                            <label for="gameDetectiveCount">Şerif sayı</label>
+                            <select id="gameDetectiveCount">
+                                <option value="0">0</option>
+                                <option value="1" selected>1</option>
+                                <option value="2">2</option>
+                            </select>
                         </div>
+
+                        <div class="game-setting-divider"></div>
+
+                        <div class="game-setting-row">
+                            <label for="gameDiscussionTime">Müzakirə müddəti</label>
+                            <select id="gameDiscussionTime">
+                                <option value="60">1 dəqiqə</option>
+                                <option value="120" selected>2 dəqiqə</option>
+                                <option value="180">3 dəqiqə</option>
+                                <option value="300">5 dəqiqə</option>
+                                <option value="600">10 dəqiqə</option>
+                            </select>
+                        </div>
+
+                        <div class="game-setting-row">
+                            <label for="gameVotingTime">Səsvermə müddəti</label>
+                            <select id="gameVotingTime">
+                                <option value="15">15 saniyə</option>
+                                <option value="30" selected>30 saniyə</option>
+                                <option value="45">45 saniyə</option>
+                                <option value="60">1 dəqiqə</option>
+                                <option value="90">1.5 dəqiqə</option>
+                                <option value="120">2 dəqiqə</option>
+                                <option value="180">3 dəqiqə</option>
+                            </select>
+                        </div>
+
+                        <div class="game-setting-divider"></div>
+
+                        <div class="game-setting-summary">
+                            <span>Seçilmiş xüsusi rollar</span>
+                            <strong id="gameSpecialRoleCount">3</strong>
+                        </div>
+
+                        <div class="game-setting-summary">
+                            <span>Mülki sakinlər</span>
+                            <strong id="gameCivilianCount">—</strong>
+                        </div>
+
+                        <button id="saveGameSettingsBtn" type="button">
+                            AYARLARI YADDA SAXLA
+                        </button>
+
+                        <p id="gameSettingsMessage" class="game-settings-message" aria-live="polite">
+                            Ayarları yalnız otaq sahibi dəyişə bilər.
+                        </p>
 
                     </div>
 
