@@ -1,0 +1,318 @@
+
+<!DOCTYPE html>
+<html lang="az">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#101012">
+    <meta name="description" content="Enter the city. Find the Mafia. Trust no one. Play online with friends.">
+    <title>MAFIA — Trust No One</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="style.css">
+    <script src="app.js" defer></script>
+</head>
+
+<body>
+
+    <div class="ambient ambient-one"></div>
+    <div class="ambient ambient-two"></div>
+    <div class="noise"></div>
+
+    <!-- NAVIGATION -->
+    <header class="navbar">
+        <a href="#" class="brand">
+            <span class="brand-icon">M</span>
+            <span class="brand-name">MAFIA<span class="brand-dot">.</span></span>
+        </a>
+
+        <nav class="nav-links">
+            <a href="#about" data-i18n="about">About</a>
+            <a href="#roles" data-i18n="roles">Roles</a>
+            <a href="#how" data-i18n="how">How to play</a>
+        </nav>
+
+        <div class="nav-actions">
+            <select id="languageSelect" class="language-select" aria-label="Language">
+                <option value="az">AZ</option>
+                <option value="tr">TR</option>
+                <option value="en">EN</option>
+            </select>
+
+            <button class="login-btn" id="loginBtn" data-i18n="login">
+                Log in
+            </button>
+
+            <button class="signup-btn" id="signupBtn" data-i18n="signup">
+                Sign up
+            </button>
+        </div>
+
+        <button class="mobile-menu" id="mobileMenu" aria-label="Open menu">
+            <span></span>
+            <span></span>
+            <span></span>
+        </button>
+    </header>
+
+
+    <!-- HERO -->
+    <main>
+
+        <section class="hero">
+
+            <div class="hero-overlay"></div>
+
+            <div class="hero-content">
+
+                <div class="eyebrow">
+                    <span class="eyebrow-line"></span>
+                    <span data-i18n="eyebrow">THE CITY NEVER SLEEPS</span>
+                    <span class="eyebrow-line"></span>
+                </div>
+
+                <h1 class="hero-title">
+                    TRUST<br>
+                    <span>NO ONE.</span>
+                </h1>
+
+                <p class="hero-description" data-i18n="description">
+                    A city full of secrets. Friends full of lies.
+                    Can you discover who is hiding behind the mask?
+                </p>
+
+                <div class="hero-buttons">
+                    <button class="primary-btn" id="playBtn">
+                        <span data-i18n="play">PLAY NOW</span>
+                        <span class="btn-arrow">↗</span>
+                    </button>
+
+                    <button class="secondary-btn" id="createBtn">
+                        <span class="plus-icon">+</span>
+                        <span data-i18n="create">CREATE ROOM</span>
+                    </button>
+                </div>
+
+                <div class="join-room">
+                    <span class="join-label" data-i18n="haveCode">
+                        HAVE A ROOM CODE?
+                    </span>
+
+                    <div class="join-input-group">
+                        <input
+                            type="text"
+                            id="roomCode"
+                            placeholder="ENTER ROOM CODE"
+                            maxlength="12"
+                            autocomplete="off"
+                        >
+                        <button id="joinBtn" data-i18n="join">JOIN →</button>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="hero-bottom">
+                <div class="hero-stat">
+                    <span class="stat-number">6–12</span>
+                    <span class="stat-label" data-i18n="players">PLAYERS</span>
+                </div>
+
+                <div class="stat-divider"></div>
+
+                <div class="hero-stat">
+                    <span class="stat-number">03</span>
+                    <span class="stat-label" data-i18n="languages">LANGUAGES</span>
+                </div>
+
+                <div class="stat-divider"></div>
+
+                <div class="hero-stat">
+                    <span class="stat-number">∞</span>
+                    <span class="stat-label" data-i18n="possibilities">POSSIBILITIES</span>
+                </div>
+            </div>
+
+            <div class="hero-side-text">
+                EST. AFTER DARK — TRUST NO ONE
+            </div>
+
+        </section>
+
+
+        <!-- ABOUT -->
+        <section class="about-section" id="about">
+
+            <div class="section-heading">
+                <span class="section-label" data-i18n="aboutLabel">THE GAME</span>
+                <h2 data-i18n="aboutTitle">EVERYONE HAS A SECRET.</h2>
+                <p data-i18n="aboutDescription">
+                    One city. Different identities. One mission:
+                    discover the truth before it's too late.
+                </p>
+            </div>
+
+            <div class="feature-grid">
+
+                <article class="feature-card">
+                    <div class="feature-icon">♟</div>
+                    <h3 data-i18n="feature1Title">HIDDEN IDENTITIES</h3>
+                    <p data-i18n="feature1Description">
+                        Every player has a secret role. Trust is your greatest weapon.
+                    </p>
+                </article>
+
+                <article class="feature-card">
+                    <div class="feature-icon">◷</div>
+                    <h3 data-i18n="feature2Title">NIGHT & DAY</h3>
+                    <p data-i18n="feature2Description">
+                        Every night changes everything. Every morning reveals something.
+                    </p>
+                </article>
+
+                <article class="feature-card">
+                    <div class="feature-icon">♜</div>
+                    <h3 data-i18n="feature3Title">SOCIAL STRATEGY</h3>
+                    <p data-i18n="feature3Description">
+                        Discuss, investigate, deceive and vote.
+                    </p>
+                </article>
+
+            </div>
+
+        </section>
+
+
+        <!-- ROLES -->
+        <section class="roles-section" id="roles">
+
+            <div class="section-heading">
+                <span class="section-label" data-i18n="rolesLabel">CHOOSE YOUR DESTINY</span>
+                <h2 data-i18n="rolesTitle">WHO ARE YOU?</h2>
+                <p data-i18n="rolesDescription">
+                    Your identity is your biggest secret.
+                </p>
+            </div>
+
+            <div class="roles-grid">
+
+                <article class="role-card mafia-card">
+                    <div class="role-number">01</div>
+                    <div class="role-symbol">♛</div>
+                    <h3>MAFIA</h3>
+                    <span class="role-type" data-i18n="mafiaType">THE ENEMY WITHIN</span>
+                    <p data-i18n="mafiaDescription">
+                        Control the city from the shadows.
+                    </p>
+                </article>
+
+                <article class="role-card sheriff-card">
+                    <div class="role-number">02</div>
+                    <div class="role-symbol">★</div>
+                    <h3>SHERIFF</h3>
+                    <span class="role-type" data-i18n="sheriffType">THE LAW</span>
+                    <p data-i18n="sheriffDescription">
+                        Find the criminals hiding among you.
+                    </p>
+                </article>
+
+                <article class="role-card doctor-card">
+                    <div class="role-number">03</div>
+                    <div class="role-symbol">✚</div>
+                    <h3>DOCTOR</h3>
+                    <span class="role-type" data-i18n="doctorType">THE PROTECTOR</span>
+                    <p data-i18n="doctorDescription">
+                        Save lives before the night ends.
+                    </p>
+                </article>
+
+                <article class="role-card maniac-card">
+                    <div class="role-number">04</div>
+                    <div class="role-symbol">☠</div>
+                    <h3>MANIAC</h3>
+                    <span class="role-type" data-i18n="maniacType">THE WILDCARD</span>
+                    <p data-i18n="maniacDescription">
+                        Follow your own path to victory.
+                    </p>
+                </article>
+
+            </div>
+
+        </section>
+
+
+        <!-- HOW TO PLAY -->
+        <section class="how-section" id="how">
+
+            <div class="section-heading">
+                <span class="section-label" data-i18n="howLabel">THE RULES</span>
+                <h2 data-i18n="howTitle">FOUR STEPS. ONE WINNER.</h2>
+            </div>
+
+            <div class="steps-grid">
+
+                <div class="step-card">
+                    <span class="step-number">01</span>
+                    <h3 data-i18n="step1Title">JOIN</h3>
+                    <p data-i18n="step1Description">Enter a room with your friends or strangers.</p>
+                </div>
+
+                <div class="step-card">
+                    <span class="step-number">02</span>
+                    <h3 data-i18n="step2Title">GET YOUR ROLE</h3>
+                    <p data-i18n="step2Description">Receive your secret identity.</p>
+                </div>
+
+                <div class="step-card">
+                    <span class="step-number">03</span>
+                    <h3 data-i18n="step3Title">PLAY</h3>
+                    <p data-i18n="step3Description">Investigate, discuss and vote.</p>
+                </div>
+
+                <div class="step-card">
+                    <span class="step-number">04</span>
+                    <h3 data-i18n="step4Title">WIN</h3>
+                    <p data-i18n="step4Description">Outsmart everyone and claim victory.</p>
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+
+    <!-- FOOTER -->
+    <footer class="footer">
+
+        <a href="#" class="brand footer-brand">
+            <span class="brand-icon">M</span>
+            <span class="brand-name">MAFIA<span class="brand-dot">.</span></span>
+        </a>
+
+        <p data-i18n="footerText">
+            THE NIGHT BELONGS TO THOSE WHO KNOW THE TRUTH.
+        </p>
+
+        <span class="copyright">© 2026 MAFIA. ALL RIGHTS RESERVED.</span>
+
+    </footer>
+
+
+    <!-- FUTURE MODAL PLACEHOLDER -->
+    <div class="modal" id="modal">
+        <div class="modal-content">
+            <button class="modal-close" id="modalClose">×</button>
+            <span class="modal-icon">♛</span>
+            <h2 id="modalTitle">COMING SOON</h2>
+            <p id="modalDescription">
+                This feature is currently under development.
+            </p>
+        </div>
+    </div>
+
+</body>
+</html>
