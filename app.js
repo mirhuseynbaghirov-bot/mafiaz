@@ -2,7 +2,7 @@
 /* =========================================
    MAFIA — APP.JS
    Room creation, joining, lobby,
-   ready system, game settings & role system
+   ready system, bots, game settings & roles
 ========================================= */
 
 (() => {
@@ -55,6 +55,11 @@
   const lobbyStartMessage = $("lobbyStartMessage");
   const startGameBtn = $("startGameBtn");
 
+  /* BOT ELEMENTS */
+
+  const lobbyBotControls = $("lobbyBotControls");
+  const addBotBtn = $("addBotBtn");
+
   /* GAME SETTINGS */
 
   const gameMafiaCount = $("gameMafiaCount");
@@ -93,9 +98,12 @@
   let refreshTimeout = null;
 
   let currentPlayers = [];
+  let currentBots = [];
+
   let isUpdatingReady = false;
   let isSavingGameSettings = false;
   let isStartingGame = false;
+  let isAddingBot = false;
 
   let readyButton = null;
 
@@ -181,6 +189,10 @@
 
       return entities[character];
     });
+  }
+
+  function getTotalPlayerCount() {
+    return currentPlayers.length + currentBots.length;
   }
 
   function showHome() {
@@ -573,6 +585,7 @@
     activeRoomId = room.id || room.room_id || null;
 
     currentPlayers = [];
+    currentBots = [];
 
     if (room.host_id) {
       isRoomHost = room.host_id === user.id;
@@ -582,13 +595,12 @@
     showLobby();
 
     createReadyButton();
-
     renderGameSettings();
+
     await refreshLobbyPlayers();
 
     subscribeToRoomChanges();
 
-    // Oyun artıq başlayıbsa, oyunçu öz rolunu görə bilsin.
     if (activeRoom.status === "playing") {
       await displayMyRole();
     }
@@ -636,6 +648,7 @@
 
     updateGameSettingsPermissions();
     updateReadyButton();
+    updateBotControls();
   }
 
   /* =========================================
@@ -958,6 +971,24 @@
         color: #c78a8a;
       }
 
+      .lobby-bot-card {
+        border-color: rgba(161,118,24,.55) !important;
+      }
+
+      .lobby-bot-label {
+        display: inline-block;
+        margin-top: 5px;
+        color: #d8b65d;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 1px;
+      }
+
+      #addBotBtn:disabled {
+        opacity: .5;
+        cursor: not-allowed;
+      }
+
       .game-settings-card .settings-description {
         margin: 8px 0 18px;
         color: #aaa2a4;
@@ -1185,15 +1216,97 @@
   }
 
   /* =========================================
+     BOT CONTROLS
+  ========================================= */
+
+  function updateBotControls() {
+    if (!lobbyBotControls) return;
+
+    const isWaiting = activeRoom?.status === "waiting";
+    const isFull =
+      getTotalPlayerCount() >= Number(activeRoom?.max_players || 12);
+
+    lobbyBotControls.hidden = !isRoomHost || !isWaiting;
+
+    if (addBotBtn) {
+      addBotBtn.disabled =
+        !isRoomHost ||
+        !isWaiting ||
+        isFull ||
+        isAddingBot;
+
+      addBotBtn.textContent = isAddingBot
+        ? "BOT ƏLAVƏ EDİLİR..."
+        : isFull
+          ? "OTAQ DOLUDUR"
+          : "+ BOT ƏLAVƏ ET";
+    }
+  }
+
+  async function addRoomBot() {
+    if (
+      !activeRoomId ||
+      !activeRoom ||
+      !isRoomHost ||
+      isAddingBot
+    ) {
+      return;
+    }
+
+    if (activeRoom.status !== "waiting") {
+      showMessage("Məlumat", "Oyun başladıqdan sonra bot əlavə edilə bilməz.");
+      return;
+    }
+
+    if (getTotalPlayerCount() >= Number(activeRoom.max_players)) {
+      showMessage("Otaq doludur", "Bu otaqda boş yer qalmayıb.");
+      return;
+    }
+
+    isAddingBot = true;
+    updateBotControls();
+
+    try {
+      const { data, error } = await mafiaDB.rpc("add_room_bot", {
+        p_room_id: activeRoomId
+      });
+
+      if (error) throw error;
+
+      const result = normalizeResult(data);
+
+      if (result?.success === false) {
+        throw new Error(result.message || "Bot əlavə edilə bilmədi.");
+      }
+
+      await refreshLobbyPlayers();
+
+    } catch (error) {
+      console.error("Bot əlavə etmə xətası:", error);
+
+      showMessage(
+        "Bot əlavə edilmədi",
+        error.message || "Bot əlavə edilərkən xəta baş verdi."
+      );
+
+    } finally {
+      isAddingBot = false;
+      updateBotControls();
+    }
+  }
+
+  /* =========================================
      START BUTTON STATE
   ========================================= */
 
-  function updateStartButton(players = currentPlayers) {
+  function updateStartButton(players = currentPlayers, bots = currentBots) {
     if (!startGameBtn) return;
 
-    const count = players.length;
+    const count = players.length + bots.length;
     const enoughPlayers = count >= MIN_PLAYERS;
 
+    // İnsan oyunçular hazır olmalıdır.
+    // Botlar avtomatik hazır hesab olunur.
     const allReady =
       enoughPlayers &&
       players.every((player) => Boolean(player.is_ready));
@@ -1235,7 +1348,7 @@
 
     } else if (!enoughPlayers) {
       lobbyStartMessage.textContent =
-        `Oyunun başlaması üçün ən azı ${MIN_PLAYERS} oyunçu lazımdır (${count}/${MIN_PLAYERS}).`;
+        `Oyunun başlaması üçün ən azı ${MIN_PLAYERS} iştirakçı lazımdır (${count}/${MIN_PLAYERS}).`;
 
     } else if (!allReady) {
       const readyCount = players.filter(
@@ -1243,16 +1356,16 @@
       ).length;
 
       lobbyStartMessage.textContent =
-        `Oyunçuların hazır olması gözlənilir: ${readyCount}/${count}.`;
+        `İnsan oyunçuların hazır olması gözlənilir: ${readyCount}/${players.length}. Botlar avtomatik hazırdır.`;
 
     } else {
       lobbyStartMessage.textContent =
-        "Bütün oyunçular hazırdır. Oyunu başlada bilərsiniz.";
+        "Bütün insan oyunçular hazırdır. Oyunu başlada bilərsiniz.";
     }
   }
 
   /* =========================================
-     LOAD LOBBY PLAYERS
+     LOAD LOBBY PLAYERS AND BOTS
   ========================================= */
 
   async function refreshLobbyPlayers() {
@@ -1261,31 +1374,46 @@
       return;
     }
 
-    const { data, error } = await mafiaDB
-      .from("room_players")
-      .select(
-        "id, room_id, user_id, seat_number, is_alive, is_ready"
-      )
-      .eq("room_id", activeRoomId)
-      .order("seat_number", { ascending: true });
+    const [playersResult, botsResult] = await Promise.all([
+      mafiaDB
+        .from("room_players")
+        .select("id, room_id, user_id, seat_number, is_alive, is_ready")
+        .eq("room_id", activeRoomId)
+        .order("seat_number", { ascending: true }),
 
-    if (error) {
-      console.error("Oyunçular yüklənmədi:", error);
+      mafiaDB
+        .from("room_bots")
+        .select("id, room_id, bot_name, seat_number, is_alive, is_ready")
+        .eq("room_id", activeRoomId)
+        .order("seat_number", { ascending: true })
+    ]);
 
-      renderEmptyLobby(
-        "Oyunçu siyahısını yükləmək mümkün olmadı."
-      );
-
+    if (playersResult.error) {
+      console.error("Oyunçular yüklənmədi:", playersResult.error);
+      renderEmptyLobby("Oyunçu siyahısını yükləmək mümkün olmadı.");
       return;
     }
 
-    renderPlayers(data || []);
+    if (botsResult.error) {
+      console.error("Botlar yüklənmədi:", botsResult.error);
+      showMessage(
+        "Bot məlumatları yüklənmədi",
+        botsResult.error.message || "Bot siyahısını oxumaq mümkün olmadı."
+      );
+      return;
+    }
+
+    renderPlayers(
+      playersResult.data || [],
+      botsResult.data || []
+    );
   }
 
   function renderEmptyLobby(message = "Oyunçular gözlənilir...") {
     if (!lobbyPlayers) return;
 
     currentPlayers = [];
+    currentBots = [];
 
     lobbyPlayers.innerHTML = `
       <div class="lobby-waiting-message">
@@ -1299,34 +1427,37 @@
     }
 
     updateReadyButton();
-    updateStartButton([]);
+    updateStartButton([], []);
     updateGameSettingsSummary();
+    updateBotControls();
   }
 
   /* =========================================
-     RENDER PLAYERS
+     RENDER PLAYERS AND BOTS
   ========================================= */
 
-  function renderPlayers(players) {
+  function renderPlayers(players, bots = []) {
     if (!lobbyPlayers || !activeRoom) return;
 
     currentPlayers = players;
+    currentBots = bots;
 
     const maxPlayers = Number(activeRoom.max_players || 12);
-    const playerCount = players.length;
+    const totalCount = players.length + bots.length;
 
     if (lobbyPlayerCount) {
       lobbyPlayerCount.textContent =
-        `${playerCount}/${maxPlayers}`;
+        `${totalCount}/${maxPlayers}`;
     }
 
     if (lobbyWaitingMessage) {
-      lobbyWaitingMessage.hidden = playerCount >= maxPlayers;
+      lobbyWaitingMessage.hidden = totalCount >= maxPlayers;
     }
 
     updateReadyButton();
-    updateStartButton(players);
+    updateStartButton(players, bots);
     updateGameSettingsSummary();
+    updateBotControls();
 
     const playerCards = players.map((player, index) => {
       const isMe = player.user_id === currentUser?.id;
@@ -1374,9 +1505,35 @@
       `;
     });
 
+    const botCards = bots.map((bot) => {
+      const botName = bot.bot_name || "Bot";
+
+      return `
+        <div class="lobby-player-card lobby-bot-card is-ready">
+          <div class="lobby-player-avatar">
+            🤖
+          </div>
+
+          <div class="lobby-player-name">
+            ${escapeHTML(botName)}
+          </div>
+
+          <div class="lobby-player-status">
+            Süni oyunçu
+          </div>
+
+          <span class="lobby-ready-label ready">
+            ✓ HAZIRDIR
+          </span>
+
+          <span class="lobby-bot-label">BOT</span>
+        </div>
+      `;
+    });
+
     const emptySlots = [];
 
-    for (let i = playerCount; i < maxPlayers; i++) {
+    for (let i = totalCount; i < maxPlayers; i++) {
       emptySlots.push(`
         <div class="lobby-empty-slot">
           <div class="lobby-player-avatar">+</div>
@@ -1388,6 +1545,7 @@
 
     lobbyPlayers.innerHTML = [
       ...playerCards,
+      ...botCards,
       ...emptySlots
     ].join("");
   }
@@ -1400,7 +1558,6 @@
     if (!activeRoomId || !currentUser) return;
 
     try {
-      // RLS siyasətinə görə yalnız öz rolumuzu oxuya bilərik.
       const { data, error } = await mafiaDB
         .from("room_player_roles")
         .select("role")
@@ -1458,8 +1615,9 @@
       return;
     }
 
-    const enoughPlayers =
-      currentPlayers.length >= MIN_PLAYERS;
+    const totalCount = getTotalPlayerCount();
+
+    const enoughPlayers = totalCount >= MIN_PLAYERS;
 
     const allReady =
       enoughPlayers &&
@@ -1470,7 +1628,7 @@
     if (!enoughPlayers) {
       showMessage(
         "Oyunçu sayı azdır",
-        `Oyuna başlamaq üçün ən azı ${MIN_PLAYERS} oyunçu lazımdır.`
+        `Oyuna başlamaq üçün ən azı ${MIN_PLAYERS} iştirakçı lazımdır. Hazırda ${totalCount} nəfər var.`
       );
       return;
     }
@@ -1478,7 +1636,7 @@
     if (!allReady) {
       showMessage(
         "Oyunçular hazır deyil",
-        "Oyunu başlamaq üçün bütün oyunçular hazır olmalıdır."
+        "Oyunu başlamaq üçün bütün insan oyunçular hazır olmalıdır."
       );
       return;
     }
@@ -1487,7 +1645,6 @@
     updateStartButton();
 
     try {
-      // Rollar server tərəfində təsadüfi paylanır.
       const { data, error } = await mafiaDB.rpc(
         "start_mafia_game",
         {
@@ -1501,7 +1658,6 @@
         throw new Error("Oyun başlatıla bilmədi.");
       }
 
-      // Otağın yeni statusunu yenilə.
       activeRoom = {
         ...activeRoom,
         status: "playing"
@@ -1510,7 +1666,6 @@
       renderLobby();
       updateStartButton();
 
-      // Host da yalnız öz rolunu oxuyur.
       await displayMyRole();
 
     } catch (error) {
@@ -1553,11 +1708,20 @@
           filter: `room_id=eq.${activeRoomId}`
         },
         () => {
-          clearTimeout(refreshTimeout);
+          scheduleLobbyRefresh();
+        }
+      )
 
-          refreshTimeout = setTimeout(() => {
-            refreshLobbyPlayers();
-          }, 300);
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "room_bots",
+          filter: `room_id=eq.${activeRoomId}`
+        },
+        () => {
+          scheduleLobbyRefresh();
         }
       )
 
@@ -1583,7 +1747,6 @@
           renderGameSettings();
           updateStartButton();
 
-          // Oyun yeni başlayıbsa, hər oyunçu öz rolunu açır.
           if (
             previousStatus !== "playing" &&
             activeRoom.status === "playing"
@@ -1596,6 +1759,14 @@
       .subscribe((status) => {
         console.log("Lobby realtime status:", status);
       });
+  }
+
+  function scheduleLobbyRefresh() {
+    clearTimeout(refreshTimeout);
+
+    refreshTimeout = setTimeout(() => {
+      refreshLobbyPlayers();
+    }, 300);
   }
 
   function unsubscribeFromRoomChanges() {
@@ -1681,11 +1852,13 @@
       activeRoom = null;
       activeRoomId = null;
       currentPlayers = [];
+      currentBots = [];
 
       isRoomHost = false;
       isUpdatingReady = false;
       isSavingGameSettings = false;
       isStartingGame = false;
+      isAddingBot = false;
 
       if (readyButton) {
         readyButton.remove();
@@ -1798,6 +1971,7 @@
   $("leaveRoomBtn")?.addEventListener("click", leaveRoom);
 
   startGameBtn?.addEventListener("click", handleStartGame);
+  addBotBtn?.addEventListener("click", addRoomBot);
 
   $("languageSelect")?.addEventListener("change", (event) => {
     translatePage(event.target.value);
