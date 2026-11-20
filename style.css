@@ -2194,3 +2194,208 @@ select:focus-visible {
         transition: none !important;
     }
 }
+
+
+/* =========================================
+   MOBILE RESPONSIVE FIX
+========================================= */
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+    -webkit-text-size-adjust: 100%;
+}
+
+body {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
+button,
+input,
+select,
+textarea {
+    max-width: 100%;
+    font: inherit;
+}
+
+button {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    cursor: pointer;
+}
+
+/* Bütün bölmələr ekranı aşmasın */
+
+section,
+main,
+header,
+footer,
+.container,
+.modal,
+.modal-content {
+    max-width: 100%;
+}
+
+/* =========================================
+   MOBILE BUTTONS
+========================================= */
+
+@media (max-width: 700px) {
+
+    .navbar {
+        width: 100%;
+        max-width: 100%;
+        padding-left: 16px;
+        padding-right: 16px;
+    }
+
+    .hero,
+    .hero-content,
+    .container {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+    }
+
+    .hero-buttons,
+    .hero-actions,
+    .button-group,
+    .modal-actions {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        width: 100%;
+        gap: 12px;
+    }
+
+    .hero-buttons button,
+    .hero-actions button,
+    .button-group button,
+    .modal-actions button,
+    #createBtn,
+    #joinBtn,
+    #playBtn {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        min-height: 48px;
+        padding: 13px 16px;
+    }
+
+    .modal {
+        padding: 14px;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .modal-content {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        padding: 22px 18px;
+        max-height: 85vh;
+        overflow-y: auto;
+    }
+
+    .room-form {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .room-form input,
+    .room-form select,
+    .room-form button {
+        width: 100%;
+        min-width: 0;
+        max-width: 100%;
+    }
+
+    /* Lobby */
+
+    .lobby-screen {
+        width: 100%;
+        max-width: 100%;
+        padding-left: 14px;
+        padding-right: 14px;
+    }
+
+    .lobby-header {
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+
+    .lobby-room-info {
+        grid-template-columns: minmax(0, 1fr);
+        width: 100%;
+    }
+
+    .lobby-main {
+        grid-template-columns: minmax(0, 1fr);
+        width: 100%;
+    }
+
+    .lobby-players-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        width: 100%;
+    }
+
+    .lobby-player-card,
+    .lobby-empty-slot {
+        min-width: 0;
+        overflow-wrap: anywhere;
+    }
+
+    #startGameBtn,
+    #leaveRoomBtn,
+    #copyLobbyCode {
+        max-width: 100%;
+        min-width: 0;
+        min-height: 46px;
+    }
+
+    #startGameBtn {
+        width: 100%;
+    }
+
+    .lobby-code-wrapper {
+        flex-wrap: wrap;
+        min-width: 0;
+    }
+
+    .lobby-code-wrapper button {
+        max-width: 100%;
+    }
+
+    input,
+    select,
+    textarea {
+        font-size: 16px;
+    }
+}
+
+/* Kiçik ekranlar */
+
+@media (max-width: 380px) {
+
+    .lobby-players-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .modal-content {
+        padding: 18px 14px;
+    }
+
+    .brand-name {
+        font-size: 17px;
+    }
+}
+
