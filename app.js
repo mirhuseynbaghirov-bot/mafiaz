@@ -1,6 +1,7 @@
+
 /* =========================================
    MAFIA — APP.JS
-   Room creation, joining and lobby system
+   Room creation, joining, lobby & ready system
 ========================================= */
 
 (() => {
@@ -23,7 +24,6 @@
     SUPABASE_KEY
   );
 
-  // auth.js eyni client-dən istifadə etsin
   window.mafiaDB = mafiaDB;
 
   /* =========================================
@@ -61,12 +61,19 @@
   const MIN_PLAYERS = 6;
 
   let currentLanguage = $("languageSelect")?.value || "az";
+
   let currentUser = null;
   let activeRoom = null;
   let activeRoomId = null;
+
   let isRoomHost = false;
   let roomChannel = null;
   let refreshTimeout = null;
+
+  let currentPlayers = [];
+  let isUpdatingReady = false;
+
+  let readyButton = null;
 
   const languageNames = {
     az: "Azərbaycan dili",
@@ -181,6 +188,7 @@
     if (!modal) return;
 
     modalTitle.textContent = "Yeni otaq yarat";
+
     modalDescription.innerHTML = `
       <form id="createRoomForm" class="room-form">
         <label for="newRoomName">Otağın adı</label>
@@ -227,6 +235,7 @@
     if (!modal) return;
 
     modalTitle.textContent = "Otağa qoşul";
+
     modalDescription.innerHTML = `
       <form id="findRoomForm" class="room-form">
         <label for="roomSearchCode">Otaq kodu</label>
@@ -282,7 +291,9 @@
     }
 
     if (maxPlayers < 6 || maxPlayers > 12) {
-      if (message) message.textContent = "Oyunçu sayı 6–12 arasında olmalıdır.";
+      if (message) {
+        message.textContent = "Oyunçu sayı 6–12 arasında olmalıdır.";
+      }
       return;
     }
 
@@ -351,7 +362,9 @@
     const button = $("findRoomSubmit");
 
     if (!code || code.length !== 8) {
-      if (message) message.textContent = "8 simvollu otaq kodunu daxil edin.";
+      if (message) {
+        message.textContent = "8 simvollu otaq kodunu daxil edin.";
+      }
       return;
     }
 
@@ -381,16 +394,23 @@
       }
 
       modalTitle.textContent = "Otaq tapıldı";
+
       modalDescription.innerHTML = `
         <div class="room-preview">
           <h3>${escapeHTML(room.room_name || "Mafia otağı")}</h3>
-          <p>Otaq kodu: <strong>${escapeHTML(room.room_code || code)}</strong></p>
+
+          <p>
+            Otaq kodu:
+            <strong>${escapeHTML(room.room_code || code)}</strong>
+          </p>
+
           <p>
             Oyunçular:
             <strong>${Number(room.player_count || 0)}</strong>
             /
             <strong>${Number(room.max_players || 0)}</strong>
           </p>
+
           <p>Bu otağa qoşulmaq istəyirsiniz?</p>
 
           <p id="joinRoomMessage" class="room-form-message"></p>
@@ -437,7 +457,9 @@
       const result = normalizeResult(data);
 
       if (result?.success === false) {
-        throw new Error(result.message || "Otağa qoşulmaq mümkün olmadı.");
+        throw new Error(
+          result.message || "Otağa qoşulmaq mümkün olmadı."
+        );
       }
 
       isRoomHost = false;
@@ -471,7 +493,9 @@
     try {
       const { data, error } = await mafiaDB
         .from("rooms")
-        .select("id, room_code, room_name, host_id, max_players, language, status")
+        .select(
+          "id, room_code, room_name, host_id, max_players, language, status"
+        )
         .eq("room_code", roomCode)
         .maybeSingle();
 
@@ -480,6 +504,7 @@
       } else if (error) {
         console.warn("Otaq məlumatları oxunmadı:", error.message);
       }
+
     } catch (error) {
       console.warn("Otaq məlumatları yüklənmədi:", error);
     }
@@ -499,6 +524,8 @@
       return;
     }
 
+    unsubscribeFromRoomChanges();
+
     const room = await loadRoomDetails(roomCode, initialData);
 
     activeRoom = {
@@ -508,6 +535,8 @@
 
     activeRoomId = room.id || room.room_id || null;
 
+    currentPlayers = [];
+
     if (room.host_id) {
       isRoomHost = room.host_id === user.id;
     }
@@ -515,7 +544,10 @@
     renderLobby();
     showLobby();
 
+    createReadyButton();
+
     await refreshLobbyPlayers();
+
     subscribeToRoomChanges();
   }
 
@@ -532,7 +564,8 @@
     }
 
     if (lobbyRoomCode) {
-      lobbyRoomCode.textContent = activeRoom.room_code || "--------";
+      lobbyRoomCode.textContent =
+        activeRoom.room_code || "--------";
     }
 
     if (lobbyLanguage) {
@@ -547,7 +580,9 @@
 
     if (lobbyStatus) {
       lobbyStatus.textContent =
-        activeRoom.status === "started" ? "Oyun başladı" : "Oyunçular gözlənilir";
+        activeRoom.status === "started"
+          ? "Oyun başladı"
+          : "Oyunçular gözlənilir";
     }
 
     if (lobbyHostName) {
@@ -558,30 +593,245 @@
   }
 
   /* =========================================
+     READY BUTTON STYLE
+  ========================================= */
+
+  function addReadyButtonStyles() {
+    if ($("mafiaReadyStyles")) return;
+
+    const style = document.createElement("style");
+
+    style.id = "mafiaReadyStyles";
+
+    style.textContent = `
+      .mafia-ready-btn {
+        display: block;
+        width: 100%;
+        max-width: 100%;
+        padding: 15px 20px;
+        margin: 0 0 12px;
+        border: 1px solid #a17618;
+        border-radius: 10px;
+        background: #17161c;
+        color: #d8b65d;
+        font-weight: 800;
+        font-size: 14px;
+        letter-spacing: 1px;
+        cursor: pointer;
+        transition: .2s ease;
+      }
+
+      .mafia-ready-btn:hover:not(:disabled) {
+        background: #252019;
+        border-color: #d8b65d;
+      }
+
+      .mafia-ready-btn.is-ready {
+        background: #173c2b;
+        border-color: #3c9b68;
+        color: #8de0ae;
+      }
+
+      .mafia-ready-btn:disabled {
+        opacity: .55;
+        cursor: not-allowed;
+      }
+
+      .lobby-player-card.is-ready .lobby-player-status {
+        color: #8de0ae;
+      }
+
+      .lobby-player-card.is-not-ready .lobby-player-status {
+        color: #c78a8a;
+      }
+
+      .lobby-ready-label {
+        display: inline-block;
+        margin-top: 5px;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 1px;
+      }
+
+      .lobby-ready-label.ready {
+        color: #8de0ae;
+      }
+
+      .lobby-ready-label.not-ready {
+        color: #c78a8a;
+      }
+    `;
+
+    document.head.appendChild(style);
+  }
+
+  /* =========================================
+     CREATE READY BUTTON
+  ========================================= */
+
+  function createReadyButton() {
+    if (!startGameBtn) {
+      console.warn("startGameBtn elementi tapılmadı.");
+      return;
+    }
+
+    addReadyButtonStyles();
+
+    if (readyButton && readyButton.isConnected) return;
+
+    readyButton = document.createElement("button");
+
+    readyButton.type = "button";
+    readyButton.id = "readyButton";
+    readyButton.className = "mafia-ready-btn";
+    readyButton.textContent = "HAZIRAM";
+
+    readyButton.addEventListener("click", toggleReadyStatus);
+
+    startGameBtn.insertAdjacentElement("beforebegin", readyButton);
+
+    updateReadyButton();
+  }
+
+  /* =========================================
+     CURRENT PLAYER READY STATUS
+  ========================================= */
+
+  function getCurrentPlayer() {
+    if (!currentUser) return null;
+
+    return currentPlayers.find(
+      (player) => player.user_id === currentUser.id
+    ) || null;
+  }
+
+  function updateReadyButton() {
+    if (!readyButton) return;
+
+    const myPlayer = getCurrentPlayer();
+    const isReady = Boolean(myPlayer?.is_ready);
+
+    readyButton.disabled = !myPlayer || isUpdatingReady;
+
+    readyButton.classList.toggle("is-ready", isReady);
+
+    if (isUpdatingReady) {
+      readyButton.textContent = "GÖZLƏYİN...";
+    } else {
+      readyButton.textContent = isReady
+        ? "✓ HAZIRSINIZ — GERİ DÖN"
+        : "HAZIRAM";
+    }
+  }
+
+  /* =========================================
+     TOGGLE READY STATUS
+  ========================================= */
+
+  async function toggleReadyStatus() {
+    if (!activeRoomId || !currentUser || isUpdatingReady) {
+      return;
+    }
+
+    const myPlayer = getCurrentPlayer();
+
+    if (!myPlayer) {
+      showMessage(
+        "Xəta",
+        "Oyunçu məlumatınız tapılmadı. Otağa yenidən qoşulun."
+      );
+      return;
+    }
+
+    const nextReadyStatus = !Boolean(myPlayer.is_ready);
+
+    isUpdatingReady = true;
+    updateReadyButton();
+
+    try {
+      const { data, error } = await mafiaDB.rpc(
+        "set_room_player_ready",
+        {
+          p_room_id: activeRoomId,
+          p_is_ready: nextReadyStatus
+        }
+      );
+
+      if (error) throw error;
+
+      if (data === false) {
+        throw new Error("Hazır statusunu dəyişmək mümkün olmadı.");
+      }
+
+      await refreshLobbyPlayers();
+
+    } catch (error) {
+      console.error("Ready status xətası:", error);
+
+      showMessage(
+        "Xəta",
+        error.message || "Hazır statusu dəyişdirilə bilmədi."
+      );
+
+    } finally {
+      isUpdatingReady = false;
+      updateReadyButton();
+    }
+  }
+
+  /* =========================================
      START BUTTON STATE
   ========================================= */
 
-  function updateStartButton(count) {
+  function updateStartButton(players = currentPlayers) {
     if (!startGameBtn) return;
 
-    const enough = count >= MIN_PLAYERS;
+    const count = players.length;
 
-    startGameBtn.disabled = !(isRoomHost && enough);
-    startGameBtn.textContent = isRoomHost
-      ? "OYUNU BAŞLAT →"
-      : "HOST OYUNU BAŞLADACAQ";
+    const enoughPlayers = count >= MIN_PLAYERS;
 
-    if (lobbyStartMessage) {
-      if (!isRoomHost) {
-        lobbyStartMessage.textContent =
-          "Oyunun başlamasını otaq sahibi idarə edir.";
-      } else if (enough) {
-        lobbyStartMessage.textContent =
-          "Hazırsınızsa oyunu başlada bilərsiniz.";
-      } else {
-        lobbyStartMessage.textContent =
-          `Oyunun başlaması üçün ən azı ${MIN_PLAYERS} oyunçu lazımdır (${count}/${MIN_PLAYERS}).`;
-      }
+    const allReady =
+      enoughPlayers &&
+      players.every((player) => Boolean(player.is_ready));
+
+    const canStart = isRoomHost && enoughPlayers && allReady;
+
+    startGameBtn.disabled = !canStart;
+
+    if (!isRoomHost) {
+      startGameBtn.textContent = "HOST OYUNU BAŞLADACAQ";
+
+    } else if (!enoughPlayers) {
+      startGameBtn.textContent = "OYUNÇULAR GÖZLƏNİLİR";
+
+    } else if (!allReady) {
+      startGameBtn.textContent = "HAZIRLIQ GÖZLƏNİLİR";
+
+    } else {
+      startGameBtn.textContent = "OYUNU BAŞLAT →";
+    }
+
+    if (!lobbyStartMessage) return;
+
+    if (!isRoomHost) {
+      lobbyStartMessage.textContent =
+        "Oyunun başlamasını otaq sahibi idarə edir.";
+
+    } else if (!enoughPlayers) {
+      lobbyStartMessage.textContent =
+        `Oyunun başlaması üçün ən azı ${MIN_PLAYERS} oyunçu lazımdır (${count}/${MIN_PLAYERS}).`;
+
+    } else if (!allReady) {
+      const readyCount = players.filter(
+        (player) => Boolean(player.is_ready)
+      ).length;
+
+      lobbyStartMessage.textContent =
+        `Oyunçuların hazır olması gözlənilir: ${readyCount}/${count}.`;
+
+    } else {
+      lobbyStartMessage.textContent =
+        "Bütün oyunçular hazırdır. Oyunu başlada bilərsiniz.";
     }
   }
 
@@ -597,13 +847,19 @@
 
     const { data, error } = await mafiaDB
       .from("room_players")
-      .select("id, room_id, user_id, seat_number, is_alive")
+      .select(
+        "id, room_id, user_id, seat_number, is_alive, is_ready"
+      )
       .eq("room_id", activeRoomId)
       .order("seat_number", { ascending: true });
 
     if (error) {
       console.error("Oyunçular yüklənmədi:", error);
-      renderEmptyLobby("Oyunçu siyahısını yükləmək mümkün olmadı.");
+
+      renderEmptyLobby(
+        "Oyunçu siyahısını yükləmək mümkün olmadı."
+      );
+
       return;
     }
 
@@ -612,6 +868,8 @@
 
   function renderEmptyLobby(message = "Oyunçular gözlənilir...") {
     if (!lobbyPlayers) return;
+
+    currentPlayers = [];
 
     lobbyPlayers.innerHTML = `
       <div class="lobby-waiting-message">
@@ -624,28 +882,42 @@
         `0/${Number(activeRoom?.max_players || 12)}`;
     }
 
-    updateStartButton(0);
+    updateReadyButton();
+    updateStartButton([]);
   }
+
+  /* =========================================
+     RENDER PLAYERS
+  ========================================= */
 
   function renderPlayers(players) {
     if (!lobbyPlayers || !activeRoom) return;
+
+    currentPlayers = players;
 
     const maxPlayers = Number(activeRoom.max_players || 12);
     const playerCount = players.length;
 
     if (lobbyPlayerCount) {
-      lobbyPlayerCount.textContent = `${playerCount}/${maxPlayers}`;
+      lobbyPlayerCount.textContent =
+        `${playerCount}/${maxPlayers}`;
     }
-
-    updateStartButton(playerCount);
 
     if (lobbyWaitingMessage) {
       lobbyWaitingMessage.hidden = playerCount >= maxPlayers;
     }
 
+    updateReadyButton();
+    updateStartButton(players);
+
     const playerCards = players.map((player, index) => {
       const isMe = player.user_id === currentUser?.id;
-      const isHost = player.user_id === activeRoom.host_id || (isMe && isRoomHost);
+
+      const isHost =
+        player.user_id === activeRoom.host_id ||
+        (isMe && isRoomHost);
+
+      const isReady = Boolean(player.is_ready);
 
       const playerName = isMe
         ? getUserName(currentUser)
@@ -654,7 +926,12 @@
       const avatarLetter = playerName.charAt(0).toUpperCase();
 
       return `
-        <div class="lobby-player-card ${isHost ? "is-host" : ""}">
+        <div class="
+          lobby-player-card
+          ${isHost ? "is-host" : ""}
+          ${isReady ? "is-ready" : "is-not-ready"}
+        ">
+
           <div class="lobby-player-avatar">
             ${escapeHTML(avatarLetter)}
           </div>
@@ -667,11 +944,16 @@
             ${isMe ? "Siz" : "Qoşulub"}
           </div>
 
+          <span class="lobby-ready-label ${isReady ? "ready" : "not-ready"}">
+            ${isReady ? "✓ HAZIRDIR" : "HAZIR DEYİL"}
+          </span>
+
           ${
             isHost
               ? '<span class="lobby-player-host-label">HOST</span>'
               : ""
           }
+
         </div>
       `;
     });
@@ -688,7 +970,10 @@
       `);
     }
 
-    lobbyPlayers.innerHTML = [...playerCards, ...emptySlots].join("");
+    lobbyPlayers.innerHTML = [
+      ...playerCards,
+      ...emptySlots
+    ].join("");
   }
 
   /* =========================================
@@ -707,6 +992,7 @@
 
     roomChannel = mafiaDB
       .channel(`mafia-room-${activeRoomId}`)
+
       .on(
         "postgres_changes",
         {
@@ -723,6 +1009,7 @@
           }, 300);
         }
       )
+
       .on(
         "postgres_changes",
         {
@@ -742,6 +1029,7 @@
           }
         }
       )
+
       .subscribe((status) => {
         console.log("Lobby realtime status:", status);
       });
@@ -772,14 +1060,21 @@
 
       if (button) {
         const oldText = button.textContent;
+
         button.textContent = "Kopyalandı!";
+
         setTimeout(() => {
           button.textContent = oldText;
         }, 1500);
       }
+
     } catch (error) {
       console.error("Kopyalama xətası:", error);
-      showMessage("Otaq kodu", `Otaq kodunuz: ${code}`);
+
+      showMessage(
+        "Otaq kodu",
+        `Otaq kodunuz: ${code}`
+      );
     }
   }
 
@@ -809,10 +1104,12 @@
 
         if (error) {
           console.error("Otaqdan çıxma xətası:", error);
+
           showMessage(
             "Xəta",
             "Otaqdan çıxmaq mümkün olmadı. Supabase icazələrini yoxlamaq lazımdır."
           );
+
           return;
         }
       }
@@ -821,13 +1118,25 @@
 
       activeRoom = null;
       activeRoomId = null;
+      currentPlayers = [];
+
       isRoomHost = false;
+      isUpdatingReady = false;
+
+      if (readyButton) {
+        readyButton.remove();
+        readyButton = null;
+      }
 
       showHome();
 
     } catch (error) {
       console.error("Otaqdan çıxma xətası:", error);
-      showMessage("Xəta", "Otaqdan çıxarkən xəta baş verdi.");
+
+      showMessage(
+        "Xəta",
+        "Otaqdan çıxarkən xəta baş verdi."
+      );
     }
   }
 
@@ -838,9 +1147,36 @@
   function handleStartGame() {
     if (!isRoomHost) return;
 
+    const enoughPlayers =
+      currentPlayers.length >= MIN_PLAYERS;
+
+    const allReady =
+      enoughPlayers &&
+      currentPlayers.every(
+        (player) => Boolean(player.is_ready)
+      );
+
+    if (!enoughPlayers) {
+      showMessage(
+        "Oyunçu sayı azdır",
+        `Oyuna başlamaq üçün ən azı ${MIN_PLAYERS} oyunçu lazımdır.`
+      );
+
+      return;
+    }
+
+    if (!allReady) {
+      showMessage(
+        "Oyunçular hazır deyil",
+        "Oyunu başlamaq üçün bütün oyunçular hazır olmalıdır."
+      );
+
+      return;
+    }
+
     showMessage(
-      "Növbəti mərhələ",
-      "Lobby hazırdır. Oyunun başladılması üçün ayrıca oyun mexanikası və server funksiyası əlavə edilməlidir."
+      "Hazırlıq tamamlandı!",
+      "Bütün oyunçular hazırdır. Növbəti mərhələdə oyun başlatma mexanikasını əlavə edəcəyik."
     );
   }
 
@@ -854,11 +1190,6 @@
       : "az";
 
     document.documentElement.lang = currentLanguage;
-
-    /*
-      Tərcümə obyekti (window.translations) varsa istifadə olunur.
-      Yoxdursa, səhifə xəta vermədən olduğu kimi qalır.
-    */
 
     const dictionary =
       window.translations ||
@@ -904,6 +1235,7 @@
         "Giriş tələb olunur",
         "Otaq yaratmaq üçün hesabınıza daxil olun."
       );
+
       return;
     }
 
@@ -918,6 +1250,7 @@
         "Giriş tələb olunur",
         "Otağa qoşulmaq üçün hesabınıza daxil olun."
       );
+
       return;
     }
 
