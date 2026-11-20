@@ -11,7 +11,6 @@
   const authModal = document.getElementById("modal");
   const authTitle = document.getElementById("modalTitle");
   const authDescription = document.getElementById("modalDescription");
-
   const authLoginBtn = document.getElementById("loginBtn");
   const authSignupBtn = document.getElementById("signupBtn");
 
@@ -19,7 +18,12 @@
 
   function openAuthModal(title, content) {
     authTitle.textContent = title;
-    authDescription.innerHTML = content;
+    authDescription.replaceChildren();
+
+    const wrapper = document.createElement("div");
+    wrapper.innerHTML = content;
+    authDescription.appendChild(wrapper);
+
     authModal.classList.add("active");
   }
 
@@ -45,11 +49,13 @@
         profileButton.addEventListener("click", showProfile);
       }
 
-      profileButton.textContent =
-        (user.user_metadata?.username || user.email?.split("@")[0] || "Player").toUpperCase();
+      const username =
+        user.user_metadata?.username ||
+        user.email?.split("@")[0] ||
+        "Player";
 
+      profileButton.textContent = username.toUpperCase();
       profileButton.style.display = "inline-block";
-
     } else {
       authLoginBtn.style.display = "";
       authSignupBtn.style.display = "";
@@ -80,6 +86,7 @@
           style="width:100%;padding:13px;background:#8e2633;color:white;border:0;border-radius:8px;cursor:pointer;">
           HESABDAN ÇIX
         </button>
+        <p id="profileMessage" style="font-size:13px;color:#c6a15b;"></p>
       </div>
     `);
 
@@ -87,10 +94,18 @@
     document.getElementById("profileEmail").textContent = user.email || "";
 
     document.getElementById("logoutBtn").addEventListener("click", async () => {
+      const button = document.getElementById("logoutBtn");
+      const message = document.getElementById("profileMessage");
+
+      button.disabled = true;
+      button.textContent = "GÖZLƏ...";
+
       const { error } = await mafiaSupabase.auth.signOut();
 
       if (error) {
-        alert(error.message);
+        message.textContent = error.message;
+        button.disabled = false;
+        button.textContent = "HESABDAN ÇIX";
         return;
       }
 
@@ -105,7 +120,6 @@
       isSignup ? "HESAB YARAT" : "DAXİL OL",
       `
         <form id="mafiaAuthForm" style="display:flex;flex-direction:column;gap:12px;text-align:left;">
-
           ${isSignup ? `
             <label>İstifadəçi adı</label>
             <input id="mafiaUsername" type="text"
@@ -164,7 +178,6 @@
             message.textContent =
               "Hesab yaradıldı! E-poçtunu təsdiqlə, sonra daxil ol.";
           }
-
         } else {
           const { data, error } = await mafiaSupabase.auth.signInWithPassword({
             email,
@@ -178,7 +191,6 @@
 
           setTimeout(closeAuthModal, 1000);
         }
-
       } catch (error) {
         message.textContent = error.message;
       } finally {
@@ -194,6 +206,8 @@
   authModal.addEventListener("click", (event) => {
     if (event.target === authModal) closeAuthModal();
   });
+
+  document.getElementById("modalClose").addEventListener("click", closeAuthModal);
 
   mafiaSupabase.auth.onAuthStateChange((event, session) => {
     updateNavbar(session?.user || null);
