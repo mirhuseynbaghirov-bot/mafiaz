@@ -2010,4 +2010,608 @@
 
   initializeApp();
 
+
+/* =========================================
+   MAFIA — GAME MECHANICS
+   Night actions, voting, bots and winner
+========================================= */
+
+const gameScreen = $("gameScreen");
+const gamePlayersBox = $("gamePlayers");
+const gameTargetList = $("gameTargetList");
+const gameActionBtn = $("gameActionBtn");
+
+let gameState = null;
+let myGameRole = null;
+let selectedGameTarget = null;
+let gameParticipants = [];
+let gameRefreshTimer = null;
+let gameRealtimeChannel = null;
+let gameActionSubmitted = false;
+
+const GAME_ROLE_INFO = {
+    mafia: {
+        name: "MAFİYA",
+        symbol: "♠",
+        description: "Gecə bir oyunçunu hədəf seç. Məqsəd şəhər sakinlərini oyundan çıxarmaqdır."
+    },
+    doctor: {
+        name: "HƏKİM",
+        symbol: "✚",
+        description: "Gecə qorumaq istədiyin bir oyunçunu seç."
+    },
+    detective: {
+        name: "DETEKTİV",
+        symbol: "⌕",
+        description: "Gecə araşdırmaq istədiyin bir oyunçunu seç."
+    },
+    civilian: {
+        name: "SÜLH SAKİNİ",
+        symbol: "♟",
+        description: "Xüsusi gecə hərəkətin yoxdur. Gündüz müzakirə və səsvermədə iştirak et."
+    }
+};
+
+function gameMessage(message) {
+    const element = $("gameActionMessage");
+    if (element) element.textContent = message;
+}
+
+function showGameScreen() {
+    if (!gameScreen) return;
+
+    if ($("mainContent")) $("mainContent").hidden = true;
+    if ($("mainNavbar")) $("mainNavbar").hidden = true;
+    if ($("mainFooter")) $("mainFooter").hidden = true;
+    if ($("lobbyScreen")) $("lobbyScreen").hidden = true;
+
+    gameScreen.hidden = false;
+
+    if (activeRoom) {
+        $("gameRoomName").textContent = activeRoom.room_name || "MAFIA";
+        $("gameRoomCodeDisplay").textContent =
+            "ROOM: " + (activeRoom.room_code || "");
+    }
+
+    startGameRefresh();
+}
+
+function hideGameScreen() {
+    if (gameScreen) gameScreen.hidden = true;
+
+    if (gameRefreshTimer) {
+        clearInterval(gameRefreshTimer);
+        gameRefreshTimer = null;
+    }
+
+    if (gameRealtimeChannel) {
+        mafiaDB.removeChannel(gameRealtimeChannel);
+        gameRealtimeChannel = null;
+    }
+}
+
+async function getMyGameRole() {
+    const { data: authData } = await mafiaDB.auth.getUser();
+    const user = authData?.user;
+
+    if (!user || !activeRoomId) return null;
+
+    const { data, error } = await mafiaDB
+        .from("room_player_roles")
+        .select("role")
+        .eq("room_id", activeRoomId)
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+    if (error) {
+        console.error("Role loading error:", error);
+        return null;
+    }
+
+    return data?.role || null;
+}
+
+async function loadGameParticipants() {
+    if (!activeRoomId) return;
+
+    const [playersResult, botsResult] = await Promise.all([
+        mafiaDB
+            .from("room_players")
+            .select("id,user_id,seat_number,is_alive")
+            .eq("room_id", activeRoomId)
+            .order("seat_number"),
+
+        mafiaDB
+            .from("room_bots")
+            .select("id,bot_name,seat_number,is_alive")
+            .eq("room_id", activeRoomId)
+            .order("seat_number")
+    ]);
+
+    if (playersResult.error) {
+        console.error("Players loading error:", playersResult.error);
+    }
+
+    if (botsResult.error) {
+        console.error("Bots loading error:", botsResult.error);
+    }
+
+    const humans = (playersResult.data || []).map(player => ({
+        id: player.user_id,
+        targetType: "user",
+        name: player.user_id === currentUser?.id
+            ? "Sən"
+            : "Oyunçu " + player.seat_number,
+        seat: player.seat_number,
+        alive: player.is_alive
+    }));
+
+    const bots = (botsResult.data || []).map(bot => ({
+        id: bot.id,
+        targetType: "bot",
+        name: bot.bot_name,
+        seat: bot.seat_number,
+        alive: bot.is_alive
+    }));
+
+    gameParticipants = [...humans, ...bots]
+        .sort((a, b) => a.seat - b.seat);
+
+    renderGameParticipants();
+}
+
+function renderGameParticipants() {
+    if (!gamePlayersBox) return;
+
+    gamePlayersBox.innerHTML = "";
+
+    gameParticipants.forEach(player => {
+        const card = document.createElement("div");
+
+        card.className =
+            "game-player-card" + (player.alive ? "" : " dead");
+
+        card.innerHTML = `
+            <div class="game-player-avatar">♟</div>
+            <span class="game-player-name">${escapeHTML(player.name)}</span>
+            <span class="game-player-status">
+                ${player.alive ? "CANLI" : "OYUNDAN ÇIXIB"}
+            </span>
+        `;
+
+        gamePlayersBox.appendChild(card);
+    });
+
+    const aliveCount = gameParticipants.filter(p => p.alive).length;
+
+    $("gamePlayerCount").textContent = gameParticipants.length;
+    $("gameAliveCount").textContent = aliveCount;
+}
+
+async function loadGameState() {
+    if (!activeRoomId) return;
+
+    const { data, error } = await mafiaDB
+        .from("room_game_state")
+        .select("*")
+        .eq("room_id", activeRoomId)
+        .maybeSingle();
+
+    if (error) {
+        console.error("Game state error:", error);
+        gameMessage("Oyun məlumatlarını yükləmək mümkün olmadı.");
+        return;
+    }
+
+    if (!data) return;
+
+    gameState = data;
+    renderGameState();
+}
+
+function renderGameState() {
+    if (!gameState) return;
+
+    const phase = gameState.phase;
+    const round = gameState.round_number || 1;
+
+    $("gameRound").textContent =
+        (phase === "night" ? "GECƏ " : "GÜNDÜZ ") + round;
+
+    $("gamePhase").textContent =
+        phase === "night" ? "GECƏ MƏRHƏLƏSİ" :
+        phase === "day" ? "GÜNDÜZ / SƏSVERMƏ" :
+        "OYUN BİTDİ";
+
+    $("gamePhaseStatus").textContent =
+        phase === "night" ? "Gecə" :
+        phase === "day" ? "Səsvermə" :
+        "Bitib";
+
+    const role = GAME_ROLE_INFO[myGameRole] ||
+        GAME_ROLE_INFO.civilian;
+
+    $("myRoleSymbol").textContent = role.symbol;
+    $("myRoleName").textContent = role.name;
+    $("myRoleDescription").textContent = role.description;
+
+    const isFinished =
+        phase === "finished" || gameState.game_over === true;
+
+    if (isFinished) {
+        renderGameFinished();
+        return;
+    }
+
+    if (phase === "night") {
+        renderNightActions();
+    } else if (phase === "day") {
+        renderVoting();
+    }
+
+    const hostControls = $("gameHostControls");
+    if (hostControls) hostControls.hidden = !isRoomHost;
+
+    $("finishNightBtn").hidden =
+        !isRoomHost || phase !== "night";
+
+    $("finishVotingBtn").hidden =
+        !isRoomHost || phase !== "day";
+}
+
+function renderNightActions() {
+    const role = myGameRole;
+
+    $("gameActionTitle").textContent = "Gecə hərəkəti";
+    $("gameActionDescription").textContent =
+        "Hədəfini seç və hərəkətini təsdiqlə.";
+
+    gameTargetList.innerHTML = "";
+    selectedGameTarget = null;
+    gameActionSubmitted = false;
+
+    if (!["mafia", "doctor", "detective"].includes(role)) {
+        $("gameActionTitle").textContent = "Gözləyin";
+        $("gameActionDescription").textContent =
+            "Bu gecə xüsusi hərəkətiniz yoxdur.";
+        gameActionBtn.disabled = true;
+        gameActionBtn.textContent = "GÖZLƏYİN";
+        return;
+    }
+
+    const aliveTargets = gameParticipants.filter(player =>
+        player.alive &&
+        !(player.targetType === "user" &&
+          player.id === currentUser?.id)
+    );
+
+    aliveTargets.forEach(player => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "game-target-btn";
+        button.textContent = player.name;
+
+        button.addEventListener("click", () => {
+            selectedGameTarget = player;
+
+            gameTargetList
+                .querySelectorAll(".game-target-btn")
+                .forEach(item => item.classList.remove("selected"));
+
+            button.classList.add("selected");
+            gameActionBtn.disabled = false;
+        });
+
+        gameTargetList.appendChild(button);
+    });
+
+    gameActionBtn.disabled = true;
+    gameActionBtn.textContent = "HƏRƏKƏTİ TƏSDİQLƏ";
+}
+
+function renderVoting() {
+    $("gameActionTitle").textContent = "Səsvermə";
+    $("gameActionDescription").textContent =
+        "Şübhələndiyin oyunçunu seç və səsini göndər.";
+
+    gameTargetList.innerHTML = "";
+    selectedGameTarget = null;
+    gameActionSubmitted = false;
+
+    const aliveTargets = gameParticipants.filter(player =>
+        player.alive &&
+        !(player.targetType === "user" &&
+          player.id === currentUser?.id)
+    );
+
+    aliveTargets.forEach(player => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "game-target-btn";
+        button.textContent = player.name;
+
+        button.addEventListener("click", () => {
+            selectedGameTarget = player;
+
+            gameTargetList
+                .querySelectorAll(".game-target-btn")
+                .forEach(item => item.classList.remove("selected"));
+
+            button.classList.add("selected");
+            gameActionBtn.disabled = false;
+        });
+
+        gameTargetList.appendChild(button);
+    });
+
+    gameActionBtn.disabled = true;
+    gameActionBtn.textContent = "SƏSİ GÖNDƏR";
+}
+
+async function submitGameAction() {
+    if (!selectedGameTarget || !gameState || gameActionSubmitted) {
+        return;
+    }
+
+    const target = selectedGameTarget;
+    const isNight = gameState.phase === "night";
+
+    gameActionBtn.disabled = true;
+    gameMessage("Hərəkət göndərilir...");
+
+    let result;
+
+    if (isNight) {
+        const actionTypes = {
+            mafia: "kill",
+            doctor: "protect",
+            detective: "investigate"
+        };
+
+        const actionType = actionTypes[myGameRole];
+
+        if (!actionType) {
+            gameMessage("Bu rolun gecə hərəkəti yoxdur.");
+            return;
+        }
+
+        result = await mafiaDB.rpc("submit_night_action", {
+            p_room_id: activeRoomId,
+            p_action_type: actionType,
+            p_target_user_id:
+                target.targetType === "user" ? target.id : null,
+            p_target_bot_id:
+                target.targetType === "bot" ? target.id : null
+        });
+    } else {
+        result = await mafiaDB.rpc("submit_vote", {
+            p_room_id: activeRoomId,
+            p_target_user_id:
+                target.targetType === "user" ? target.id : null,
+            p_target_bot_id:
+                target.targetType === "bot" ? target.id : null
+        });
+    }
+
+    if (result.error) {
+        console.error("Action error:", result.error);
+        gameMessage("Xəta: " + result.error.message);
+        gameActionBtn.disabled = false;
+        return;
+    }
+
+    gameActionSubmitted = true;
+    gameActionBtn.textContent = "GÖNDƏRİLDİ";
+    gameMessage("Seçimin qəbul edildi.");
+}
+
+async function finishGameNight() {
+    if (!isRoomHost || !activeRoomId) return;
+
+    const button = $("finishNightBtn");
+    button.disabled = true;
+    button.textContent = "GECƏ HESABLANIR...";
+
+    try {
+        const botActions = await mafiaDB.rpc(
+            "run_bot_night_actions",
+            { p_room_id: activeRoomId }
+        );
+
+        if (botActions.error) throw botActions.error;
+
+        const resolution = await mafiaDB.rpc(
+            "resolve_night",
+            { p_room_id: activeRoomId }
+        );
+
+        if (resolution.error) throw resolution.error;
+
+        await refreshGameScreen();
+    } catch (error) {
+        console.error("Night resolution error:", error);
+        gameMessage(error.message || "Gecəni tamamlamaq mümkün olmadı.");
+    } finally {
+        button.disabled = false;
+        button.textContent = "GECƏNİ TAMAMLA";
+    }
+}
+
+async function finishGameVoting() {
+    if (!isRoomHost || !activeRoomId) return;
+
+    const button = $("finishVotingBtn");
+    button.disabled = true;
+    button.textContent = "SƏSLƏR HESABLANIR...";
+
+    try {
+        const botVotes = await mafiaDB.rpc(
+            "run_bot_votes",
+            { p_room_id: activeRoomId }
+        );
+
+        if (botVotes.error) throw botVotes.error;
+
+        const resolution = await mafiaDB.rpc(
+            "resolve_voting",
+            { p_room_id: activeRoomId }
+        );
+
+        if (resolution.error) throw resolution.error;
+
+        await refreshGameScreen();
+    } catch (error) {
+        console.error("Voting resolution error:", error);
+        gameMessage(error.message || "Səsverməni tamamlamaq mümkün olmadı.");
+    } finally {
+        button.disabled = false;
+        button.textContent = "SƏSVERMƏNİ TAMAMLA";
+    }
+}
+
+async function renderGameFinished() {
+    $("gameActionTitle").textContent = "Oyun başa çatdı";
+    $("gameActionDescription").textContent = "Qalib müəyyən edildi.";
+    gameTargetList.innerHTML = "";
+    gameActionBtn.disabled = true;
+    gameActionBtn.textContent = "OYUN BİTDİ";
+
+    $("finishNightBtn").hidden = true;
+    $("finishVotingBtn").hidden = true;
+
+    const winner = gameState.winner;
+
+    $("gameAnnouncement").hidden = false;
+    $("gameAnnouncementIcon").textContent =
+        winner === "mafia" ? "♠" : "♟";
+
+    $("gameAnnouncementTitle").textContent =
+        winner === "mafia"
+            ? "MAFİYA QALİB GƏLDİ"
+            : "ŞƏHƏR SAKİNLƏRİ QALİB GƏLDİ";
+
+    $("gameAnnouncementText").textContent =
+        "Bu oyun başa çatdı.";
+}
+
+async function refreshGameScreen() {
+    if (!activeRoomId || !gameScreen || gameScreen.hidden) return;
+
+    await loadGameParticipants();
+
+    if (!myGameRole) {
+        myGameRole = await getMyGameRole();
+    }
+
+    await loadGameState();
+}
+
+function startGameRefresh() {
+    if (gameRefreshTimer) clearInterval(gameRefreshTimer);
+
+    refreshGameScreen();
+
+    gameRefreshTimer = setInterval(() => {
+        refreshGameScreen();
+    }, 3000);
+
+    if (gameRealtimeChannel) {
+        mafiaDB.removeChannel(gameRealtimeChannel);
+    }
+
+    gameRealtimeChannel = mafiaDB
+        .channel("game-state-" + activeRoomId)
+        .on(
+            "postgres_changes",
+            {
+                event: "*",
+                schema: "public",
+                table: "room_game_state",
+                filter: "room_id=eq." + activeRoomId
+            },
+            () => refreshGameScreen()
+        )
+        .on(
+            "postgres_changes",
+            {
+                event: "*",
+                schema: "public",
+                table: "room_players",
+                filter: "room_id=eq." + activeRoomId
+            },
+            () => refreshGameScreen()
+        )
+        .on(
+            "postgres_changes",
+            {
+                event: "*",
+                schema: "public",
+                table: "room_bots",
+                filter: "room_id=eq." + activeRoomId
+            },
+            () => refreshGameScreen()
+        )
+        .subscribe();
+}
+
+/* GAME BUTTON EVENTS */
+
+if (gameActionBtn) {
+    gameActionBtn.addEventListener("click", submitGameAction);
+}
+
+if ($("finishNightBtn")) {
+    $("finishNightBtn").addEventListener("click", finishGameNight);
+}
+
+if ($("finishVotingBtn")) {
+    $("finishVotingBtn").addEventListener("click", finishGameVoting);
+}
+
+/* CONNECT EXISTING ROOM FLOW */
+
+const previousEnterRoom = enterRoom;
+
+enterRoom = async function (...args) {
+    await previousEnterRoom.apply(this, args);
+
+    if (activeRoom?.status === "in_progress") {
+        myGameRole = await getMyGameRole();
+        showGameScreen();
+    }
+};
+
+const previousShowHome = showHome;
+
+showHome = function (...args) {
+    hideGameScreen();
+    return previousShowHome.apply(this, args);
+};
+
+const previousShowLobby = showLobby;
+
+showLobby = function (...args) {
+    hideGameScreen();
+    return previousShowLobby.apply(this, args);
+};
+
+const previousHandleStartGame = handleStartGame;
+
+handleStartGame = async function (...args) {
+    await previousHandleStartGame.apply(this, args);
+
+    if (activeRoom?.status === "in_progress") {
+        myGameRole = await getMyGameRole();
+        showGameScreen();
+    }
+};
+
+if ($("gameLeaveBtn")) {
+    $("gameLeaveBtn").addEventListener("click", () => {
+        const confirmed = confirm("Oyundan çıxmaq istəyirsən?");
+        if (confirmed) leaveRoom();
+    });
+}
+
 })();
+
