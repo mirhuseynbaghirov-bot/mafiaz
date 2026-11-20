@@ -1,4 +1,3 @@
-
 /* =========================================
    MAFIA — APP.JS
    Room creation, joining and lobby system
@@ -24,6 +23,9 @@
     SUPABASE_KEY
   );
 
+  // auth.js eyni client-dən istifadə etsin
+  window.mafiaDB = mafiaDB;
+
   /* =========================================
      ELEMENTS
   ========================================= */
@@ -46,6 +48,7 @@
   const lobbyLanguage = $("lobbyLanguage");
   const lobbyStatus = $("lobbyStatus");
   const lobbyPlayers = $("lobbyPlayers");
+  const lobbyWaitingMessage = $("lobbyWaitingMessage");
   const lobbyHostName = $("lobbyHostName");
   const lobbyMaxPlayers = $("lobbyMaxPlayers");
   const lobbyStartMessage = $("lobbyStartMessage");
@@ -54,6 +57,8 @@
   /* =========================================
      STATE
   ========================================= */
+
+  const MIN_PLAYERS = 6;
 
   let currentLanguage = $("languageSelect")?.value || "az";
   let currentUser = null;
@@ -73,10 +78,6 @@
      GENERAL HELPERS
   ========================================= */
 
-  function getText(value, fallback = "") {
-    return value ?? fallback;
-  }
-
   function showModal(title, description = "") {
     if (!modal) return;
 
@@ -84,14 +85,12 @@
     if (modalDescription) modalDescription.textContent = description;
 
     modal.classList.add("active");
-    modal.style.display = "flex";
   }
 
   function closeModal() {
     if (!modal) return;
 
     modal.classList.remove("active");
-    modal.style.display = "none";
   }
 
   function showMessage(title, message) {
@@ -220,7 +219,6 @@
     `;
 
     modal.classList.add("active");
-    modal.style.display = "flex";
 
     $("createRoomForm")?.addEventListener("submit", createRoom);
   }
@@ -250,7 +248,6 @@
     `;
 
     modal.classList.add("active");
-    modal.style.display = "flex";
 
     $("findRoomForm")?.addEventListener("submit", findRoom);
   }
@@ -558,18 +555,33 @@
         activeRoom.host_name ||
         (isRoomHost ? getUserName(currentUser) : "Host");
     }
+  }
 
-    if (startGameBtn) {
-      startGameBtn.disabled = !isRoomHost;
-      startGameBtn.textContent = isRoomHost
-        ? "Oyunu başlat"
-        : "Host oyunu başladacaq";
-    }
+  /* =========================================
+     START BUTTON STATE
+  ========================================= */
+
+  function updateStartButton(count) {
+    if (!startGameBtn) return;
+
+    const enough = count >= MIN_PLAYERS;
+
+    startGameBtn.disabled = !(isRoomHost && enough);
+    startGameBtn.textContent = isRoomHost
+      ? "OYUNU BAŞLAT →"
+      : "HOST OYUNU BAŞLADACAQ";
 
     if (lobbyStartMessage) {
-      lobbyStartMessage.textContent = isRoomHost
-        ? "Bütün oyunçular qoşulduqdan sonra oyunu başlada bilərsiniz."
-        : "Oyunun başlamasını otaq sahibi idarə edir.";
+      if (!isRoomHost) {
+        lobbyStartMessage.textContent =
+          "Oyunun başlamasını otaq sahibi idarə edir.";
+      } else if (enough) {
+        lobbyStartMessage.textContent =
+          "Hazırsınızsa oyunu başlada bilərsiniz.";
+      } else {
+        lobbyStartMessage.textContent =
+          `Oyunun başlaması üçün ən azı ${MIN_PLAYERS} oyunçu lazımdır (${count}/${MIN_PLAYERS}).`;
+      }
     }
   }
 
@@ -608,8 +620,11 @@
     `;
 
     if (lobbyPlayerCount) {
-      lobbyPlayerCount.textContent = "0";
+      lobbyPlayerCount.textContent =
+        `0/${Number(activeRoom?.max_players || 12)}`;
     }
+
+    updateStartButton(0);
   }
 
   function renderPlayers(players) {
@@ -619,21 +634,27 @@
     const playerCount = players.length;
 
     if (lobbyPlayerCount) {
-      lobbyPlayerCount.textContent = String(playerCount);
+      lobbyPlayerCount.textContent = `${playerCount}/${maxPlayers}`;
+    }
+
+    updateStartButton(playerCount);
+
+    if (lobbyWaitingMessage) {
+      lobbyWaitingMessage.hidden = playerCount >= maxPlayers;
     }
 
     const playerCards = players.map((player, index) => {
       const isMe = player.user_id === currentUser?.id;
       const isHost = player.user_id === activeRoom.host_id || (isMe && isRoomHost);
 
-      let playerName = isMe
+      const playerName = isMe
         ? getUserName(currentUser)
         : `Oyunçu ${player.seat_number || index + 1}`;
 
       const avatarLetter = playerName.charAt(0).toUpperCase();
 
       return `
-        <div class="lobby-player-card">
+        <div class="lobby-player-card ${isHost ? "is-host" : ""}">
           <div class="lobby-player-avatar">
             ${escapeHTML(avatarLetter)}
           </div>
@@ -835,16 +856,9 @@
     document.documentElement.lang = currentLanguage;
 
     /*
-      Mövcud tərcümə obyekti varsa, ondan istifadə edilir.
-      Obyekt yoxdursa, səhifənin digər hissələri xəta vermədən işləyir.
+      Tərcümə obyekti (window.translations) varsa istifadə olunur.
+      Yoxdursa, səhifə xəta vermədən olduğu kimi qalır.
     */
-
-    if (
-      typeof window.translations === "undefined" &&
-      typeof translations === "undefined"
-    ) {
-      return;
-    }
 
     const dictionary =
       window.translations ||
@@ -861,6 +875,22 @@
       }
     });
   }
+
+  /* =========================================
+     MOBILE MENU
+  ========================================= */
+
+  const navLinks = document.querySelector(".nav-links");
+
+  $("mobileMenu")?.addEventListener("click", () => {
+    navLinks?.classList.toggle("active");
+  });
+
+  navLinks?.querySelectorAll("a").forEach((link) => {
+    link.addEventListener("click", () => {
+      navLinks.classList.remove("active");
+    });
+  });
 
   /* =========================================
      EVENT LISTENERS
