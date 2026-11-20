@@ -1,7 +1,8 @@
 
 /* =========================================
    MAFIA — APP.JS
-   Room creation, joining, lobby & ready system
+   Room creation, joining, lobby,
+   ready system & game settings
 ========================================= */
 
 (() => {
@@ -54,11 +55,32 @@
   const lobbyStartMessage = $("lobbyStartMessage");
   const startGameBtn = $("startGameBtn");
 
+  /* GAME SETTINGS ELEMENTS */
+
+  const gameMafiaCount = $("gameMafiaCount");
+  const gameDoctorCount = $("gameDoctorCount");
+  const gameDetectiveCount = $("gameDetectiveCount");
+  const gameDiscussionTime = $("gameDiscussionTime");
+  const gameVotingTime = $("gameVotingTime");
+
+  const saveGameSettingsBtn = $("saveGameSettingsBtn");
+  const gameSettingsMessage = $("gameSettingsMessage");
+  const gameSpecialRoleCount = $("gameSpecialRoleCount");
+  const gameCivilianCount = $("gameCivilianCount");
+
   /* =========================================
      STATE
   ========================================= */
 
   const MIN_PLAYERS = 6;
+
+  const DEFAULT_GAME_SETTINGS = {
+    mafia: 1,
+    doctor: 1,
+    detective: 1,
+    discussion_seconds: 120,
+    voting_seconds: 30
+  };
 
   let currentLanguage = $("languageSelect")?.value || "az";
 
@@ -72,6 +94,7 @@
 
   let currentPlayers = [];
   let isUpdatingReady = false;
+  let isSavingGameSettings = false;
 
   let readyButton = null;
 
@@ -96,7 +119,6 @@
 
   function closeModal() {
     if (!modal) return;
-
     modal.classList.remove("active");
   }
 
@@ -494,7 +516,7 @@
       const { data, error } = await mafiaDB
         .from("rooms")
         .select(
-          "id, room_code, room_name, host_id, max_players, language, status"
+          "id, room_code, room_name, host_id, max_players, language, status, game_settings"
         )
         .eq("room_code", roomCode)
         .maybeSingle();
@@ -546,6 +568,7 @@
 
     createReadyButton();
 
+    renderGameSettings();
     await refreshLobbyPlayers();
 
     subscribeToRoomChanges();
@@ -589,6 +612,279 @@
       lobbyHostName.textContent =
         activeRoom.host_name ||
         (isRoomHost ? getUserName(currentUser) : "Host");
+    }
+
+    updateGameSettingsPermissions();
+  }
+
+  /* =========================================
+     GAME SETTINGS
+  ========================================= */
+
+  function getGameSettings() {
+    const saved = activeRoom?.game_settings;
+
+    if (!saved || typeof saved !== "object") {
+      return { ...DEFAULT_GAME_SETTINGS };
+    }
+
+    return {
+      mafia: Number(saved.mafia ?? DEFAULT_GAME_SETTINGS.mafia),
+      doctor: Number(saved.doctor ?? DEFAULT_GAME_SETTINGS.doctor),
+      detective: Number(saved.detective ?? DEFAULT_GAME_SETTINGS.detective),
+      discussion_seconds: Number(
+        saved.discussion_seconds ??
+        DEFAULT_GAME_SETTINGS.discussion_seconds
+      ),
+      voting_seconds: Number(
+        saved.voting_seconds ??
+        DEFAULT_GAME_SETTINGS.voting_seconds
+      )
+    };
+  }
+
+  function getSettingsFromInputs() {
+    return {
+      mafia: Number(gameMafiaCount?.value),
+      doctor: Number(gameDoctorCount?.value),
+      detective: Number(gameDetectiveCount?.value),
+      discussion_seconds: Number(gameDiscussionTime?.value),
+      voting_seconds: Number(gameVotingTime?.value)
+    };
+  }
+
+  function renderGameSettings() {
+    if (!activeRoom) return;
+
+    const settings = getGameSettings();
+
+    if (gameMafiaCount) {
+      gameMafiaCount.value = String(settings.mafia);
+    }
+
+    if (gameDoctorCount) {
+      gameDoctorCount.value = String(settings.doctor);
+    }
+
+    if (gameDetectiveCount) {
+      gameDetectiveCount.value = String(settings.detective);
+    }
+
+    if (gameDiscussionTime) {
+      gameDiscussionTime.value = String(settings.discussion_seconds);
+    }
+
+    if (gameVotingTime) {
+      gameVotingTime.value = String(settings.voting_seconds);
+    }
+
+    updateGameSettingsSummary();
+    updateGameSettingsPermissions();
+
+    setGameSettingsMessage(
+      isRoomHost
+        ? "Ayarları dəyişdikdən sonra yadda saxlamağı unutmayın."
+        : "Ayarları yalnız otaq sahibi dəyişə bilər."
+    );
+  }
+
+  function updateGameSettingsSummary() {
+    const settings = getSettingsFromInputs();
+
+    const specialRoles =
+      settings.mafia +
+      settings.doctor +
+      settings.detective;
+
+    const maxPlayers = Number(activeRoom?.max_players || 8);
+
+    const civilians = Math.max(0, maxPlayers - specialRoles);
+
+    if (gameSpecialRoleCount) {
+      gameSpecialRoleCount.textContent = specialRoles;
+    }
+
+    if (gameCivilianCount) {
+      gameCivilianCount.textContent = civilians;
+    }
+  }
+
+  function updateGameSettingsPermissions() {
+    const settingsLocked =
+      !isRoomHost ||
+      !activeRoom ||
+      activeRoom.status !== "waiting" ||
+      isSavingGameSettings;
+
+    const controls = [
+      gameMafiaCount,
+      gameDoctorCount,
+      gameDetectiveCount,
+      gameDiscussionTime,
+      gameVotingTime
+    ];
+
+    controls.forEach((control) => {
+      if (control) control.disabled = settingsLocked;
+    });
+
+    if (saveGameSettingsBtn) {
+      saveGameSettingsBtn.disabled =
+        settingsLocked || !activeRoomId;
+    }
+  }
+
+  function setGameSettingsMessage(message, type = "") {
+    if (!gameSettingsMessage) return;
+
+    gameSettingsMessage.textContent = message;
+    gameSettingsMessage.classList.remove(
+      "success",
+      "error"
+    );
+
+    if (type) {
+      gameSettingsMessage.classList.add(type);
+    }
+  }
+
+  function validateGameSettings(settings) {
+    const values = [
+      settings.mafia,
+      settings.doctor,
+      settings.detective,
+      settings.discussion_seconds,
+      settings.voting_seconds
+    ];
+
+    if (values.some((value) => !Number.isInteger(value))) {
+      return "Ayarlar düzgün seçilməyib.";
+    }
+
+    if (
+      settings.mafia < 1 ||
+      settings.mafia > 4 ||
+      settings.doctor < 0 ||
+      settings.doctor > 2 ||
+      settings.detective < 0 ||
+      settings.detective > 2
+    ) {
+      return "Rol sayı düzgün deyil.";
+    }
+
+    const totalRoles =
+      settings.mafia +
+      settings.doctor +
+      settings.detective;
+
+    const maxPlayers = Number(activeRoom?.max_players || 8);
+
+    if (totalRoles > maxPlayers) {
+      return "Xüsusi rolların sayı maksimum oyunçu sayından çox ola bilməz.";
+    }
+
+    if (
+      settings.discussion_seconds < 30 ||
+      settings.discussion_seconds > 600
+    ) {
+      return "Müzakirə müddəti 30–600 saniyə arasında olmalıdır.";
+    }
+
+    if (
+      settings.voting_seconds < 15 ||
+      settings.voting_seconds > 180
+    ) {
+      return "Səsvermə müddəti 15–180 saniyə arasında olmalıdır.";
+    }
+
+    return null;
+  }
+
+  async function saveGameSettings() {
+    if (!activeRoomId || !activeRoom) {
+      setGameSettingsMessage("Otaq məlumatları tapılmadı.", "error");
+      return;
+    }
+
+    if (!isRoomHost) {
+      setGameSettingsMessage(
+        "Ayarları yalnız otaq sahibi dəyişə bilər.",
+        "error"
+      );
+      return;
+    }
+
+    if (activeRoom.status !== "waiting") {
+      setGameSettingsMessage(
+        "Oyun başladıqdan sonra ayarları dəyişmək mümkün deyil.",
+        "error"
+      );
+      return;
+    }
+
+    if (isSavingGameSettings) return;
+
+    const settings = getSettingsFromInputs();
+    const validationError = validateGameSettings(settings);
+
+    if (validationError) {
+      setGameSettingsMessage(validationError, "error");
+      return;
+    }
+
+    isSavingGameSettings = true;
+
+    if (saveGameSettingsBtn) {
+      saveGameSettingsBtn.textContent = "YADDA SAXLANILIR...";
+    }
+
+    updateGameSettingsPermissions();
+
+    setGameSettingsMessage("Ayarlar yadda saxlanılır...");
+
+    try {
+      const { data, error } = await mafiaDB.rpc(
+        "set_room_game_settings",
+        {
+          p_room_id: activeRoomId,
+          p_settings: settings
+        }
+      );
+
+      if (error) throw error;
+
+      if (data === false) {
+        throw new Error("Ayarları yadda saxlamaq mümkün olmadı.");
+      }
+
+      activeRoom = {
+        ...activeRoom,
+        game_settings: settings
+      };
+
+      renderGameSettings();
+
+      setGameSettingsMessage(
+        "✓ Ayarlar uğurla yadda saxlanıldı.",
+        "success"
+      );
+
+    } catch (error) {
+      console.error("Game settings xətası:", error);
+
+      setGameSettingsMessage(
+        error.message || "Ayarları yadda saxlamaq mümkün olmadı.",
+        "error"
+      );
+
+    } finally {
+      isSavingGameSettings = false;
+
+      if (saveGameSettingsBtn) {
+        saveGameSettingsBtn.textContent = "AYARLARI YADDA SAXLA";
+      }
+
+      updateGameSettingsPermissions();
     }
   }
 
@@ -659,6 +955,106 @@
 
       .lobby-ready-label.not-ready {
         color: #c78a8a;
+      }
+
+      /* GAME SETTINGS */
+
+      .game-settings-card .settings-description {
+        margin: 8px 0 18px;
+        color: #aaa2a4;
+        font-size: 12px;
+        line-height: 1.6;
+      }
+
+      .game-setting-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin: 12px 0;
+      }
+
+      .game-setting-row label {
+        color: #c9c0c1;
+        font-size: 12px;
+      }
+
+      .game-setting-row select {
+        width: auto;
+        max-width: 130px;
+        min-width: 90px;
+        padding: 9px 10px;
+        border: 1px solid #39343a;
+        border-radius: 7px;
+        background: #111014;
+        color: #e5d9d9;
+        font: inherit;
+        font-size: 12px;
+      }
+
+      .game-setting-row select:disabled {
+        opacity: .55;
+        cursor: not-allowed;
+      }
+
+      .game-setting-divider {
+        height: 1px;
+        margin: 16px 0;
+        background: rgba(255,255,255,.08);
+      }
+
+      .game-setting-summary {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        margin: 10px 0;
+        color: #aaa2a4;
+        font-size: 12px;
+      }
+
+      .game-setting-summary strong {
+        color: #d8b65d;
+      }
+
+      #saveGameSettingsBtn {
+        width: 100%;
+        max-width: 100%;
+        margin-top: 15px;
+        padding: 13px 10px;
+        border: 1px solid #a17618;
+        border-radius: 8px;
+        background: linear-gradient(135deg, #7b5915, #a17618);
+        color: #fff;
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: .8px;
+        cursor: pointer;
+        transition: .2s ease;
+      }
+
+      #saveGameSettingsBtn:hover:not(:disabled) {
+        filter: brightness(1.15);
+      }
+
+      #saveGameSettingsBtn:disabled {
+        opacity: .5;
+        cursor: not-allowed;
+      }
+
+      .game-settings-message {
+        min-height: 30px;
+        margin: 10px 0 0;
+        color: #aaa2a4;
+        font-size: 11px;
+        line-height: 1.5;
+      }
+
+      .game-settings-message.success {
+        color: #8de0ae;
+      }
+
+      .game-settings-message.error {
+        color: #e58b8b;
       }
     `;
 
@@ -884,6 +1280,7 @@
 
     updateReadyButton();
     updateStartButton([]);
+    updateGameSettingsSummary();
   }
 
   /* =========================================
@@ -909,6 +1306,7 @@
 
     updateReadyButton();
     updateStartButton(players);
+    updateGameSettingsSummary();
 
     const playerCards = players.map((player, index) => {
       const isMe = player.user_id === currentUser?.id;
@@ -1026,6 +1424,7 @@
             };
 
             renderLobby();
+            renderGameSettings();
           }
         }
       )
@@ -1122,6 +1521,7 @@
 
       isRoomHost = false;
       isUpdatingReady = false;
+      isSavingGameSettings = false;
 
       if (readyButton) {
         readyButton.remove();
@@ -1282,6 +1682,23 @@
     translatePage(event.target.value);
   });
 
+  /* GAME SETTINGS EVENTS */
+
+  [
+    gameMafiaCount,
+    gameDoctorCount,
+    gameDetectiveCount,
+    gameDiscussionTime,
+    gameVotingTime
+  ].forEach((control) => {
+    control?.addEventListener("change", updateGameSettingsSummary);
+  });
+
+  saveGameSettingsBtn?.addEventListener(
+    "click",
+    saveGameSettings
+  );
+
   /* =========================================
      INITIALIZATION
   ========================================= */
@@ -1290,6 +1707,8 @@
     await getCurrentUser();
 
     translatePage(currentLanguage);
+
+    addReadyButtonStyles();
 
     console.log("MAFIA app.js initialized.");
   }
