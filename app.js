@@ -276,15 +276,6 @@ document.getElementById("joinBtn")?.addEventListener("click", () => {
   showModal(message("comingTitle"), message("joinLater"));
 });
 
-// Login and signup
-document.getElementById("loginBtn")?.addEventListener("click", () => {
-  showModal(message("comingTitle"), message("comingDescription"));
-});
-
-document.getElementById("signupBtn")?.addEventListener("click", () => {
-  showModal(message("comingTitle"), message("comingDescription"));
-});
-
 // Initial language
 translatePage(languageSelect?.value || "az");
 
