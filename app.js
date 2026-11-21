@@ -322,6 +322,20 @@
           <option value="en">English</option>
         </select>
 
+        <label for="newRoomPassword">Parol (könüllü)</label>
+        <input
+          id="newRoomPassword"
+          type="password"
+          maxlength="40"
+          autocomplete="new-password"
+          placeholder="Boş qalsa, otaq hamıya açıqdır"
+        >
+
+        <label class="room-check">
+          <input id="newRoomListed" type="checkbox" checked>
+          <span>Otaqlar siyahısında göstər</span>
+        </label>
+
         <p id="roomMessage" class="room-form-message"></p>
 
         <button id="createRoomSubmit" type="submit" class="modal-action-btn">
@@ -422,6 +436,20 @@
 
       isRoomHost = true;
 
+      // Parol / siyahıda göstərmə ayarı (otaq görünməzdən əvvəl tətbiq olunur)
+      const roomPassword = $("newRoomPassword")?.value || "";
+      const roomListed = $("newRoomListed")?.checked !== false;
+      let optionsError = null;
+
+      if (roomPassword || !roomListed) {
+        const opt = await mafiaDB.rpc("set_room_options", {
+          p_room_code: result.room_code,
+          p_password: roomPassword,
+          p_listed: roomListed
+        });
+        optionsError = opt.error;
+      }
+
       await enterRoom(result.room_code, {
         room_name: result.room_name || roomName,
         max_players: result.max_players || maxPlayers,
@@ -431,6 +459,14 @@
       });
 
       closeModal();
+
+      if (optionsError) {
+        console.error("Otaq ayarları:", optionsError);
+        showMessage(
+          "Parol qoyulmadı",
+          "Otaq yaradıldı, amma parol tətbiq olunmadı (mafia-social.sql işlədilib?)."
+        );
+      }
 
     } catch (error) {
       console.error("Otaq yaratma xətası:", error);
@@ -545,11 +581,83 @@
      JOIN ROOM
   ========================================= */
 
+  /* Parollu otaq: parol lazımdırsa soruş, düzgündürsə icazə server tərəfində yazılır */
+  async function ensureRoomAccess(code) {
+    let needed = false;
+
+    try {
+      const { data, error } = await mafiaDB.rpc("room_requires_password", { p_room_code: code });
+      needed = !error && data === true;
+    } catch (error) {
+      console.warn("Parol yoxlanmadı:", error);
+    }
+
+    if (!needed) return true;
+
+    return new Promise((resolve) => {
+      modalTitle.textContent = "Otaq parolludur";
+      modalDescription.innerHTML = `
+        <form id="roomPassForm" class="room-form">
+          <label for="roomPassInput">Parol</label>
+          <input id="roomPassInput" type="password" maxlength="40" autocomplete="off" required>
+          <p id="roomPassMsg" class="room-form-message"></p>
+          <button id="roomPassSubmit" type="submit" class="modal-action-btn">Daxil ol</button>
+        </form>`;
+      modal.classList.add("active");
+      $("roomPassInput")?.focus();
+
+      let settled = false;
+      const finish = (value) => {
+        if (settled) return;
+        settled = true;
+        modalClose?.removeEventListener("click", onClose);
+        modal.removeEventListener("click", onBackdrop);
+        resolve(value);
+      };
+      const onClose = () => finish(false);
+      const onBackdrop = (event) => { if (event.target === modal) finish(false); };
+      modalClose?.addEventListener("click", onClose);
+      modal.addEventListener("click", onBackdrop);
+
+      $("roomPassForm")?.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const msg = $("roomPassMsg");
+        const btn = $("roomPassSubmit");
+        setButtonLoading(btn, true);
+
+        try {
+          const { data, error } = await mafiaDB.rpc("verify_room_password", {
+            p_room_code: code,
+            p_password: $("roomPassInput")?.value || ""
+          });
+          if (error) throw error;
+
+          if (data === true) {
+            finish(true);
+          } else {
+            if (msg) msg.textContent = "Parol səhvdir.";
+            setButtonLoading(btn, false);
+          }
+        } catch (error) {
+          if (msg) msg.textContent = error.message || "Yoxlama alınmadı.";
+          setButtonLoading(btn, false);
+        }
+      });
+    });
+  }
+
   async function joinRoom(code, roomInfo = {}) {
     const button = $("confirmJoinRoom");
     const message = $("joinRoomMessage");
 
     setButtonLoading(button, true);
+
+    const allowed = await ensureRoomAccess(code);
+
+    if (!allowed) {
+      setButtonLoading(button, false);
+      return;
+    }
 
     try {
       const { data, error } = await mafiaDB.rpc("join_room", {
@@ -578,9 +686,14 @@
     } catch (error) {
       console.error("Otağa qoşulma xətası:", error);
 
-      if (message) {
+      if (message && message.isConnected) {
         message.textContent =
           error.message || "Otağa qoşularkən xəta baş verdi.";
+      } else {
+        showMessage(
+          "Otağa qoşulmaq olmadı",
+          error.message || "Otağa qoşularkən xəta baş verdi."
+        );
       }
 
       setButtonLoading(button, false);
@@ -3013,6 +3126,32 @@
 
   // leaveRoom özü təsdiq soruşur, ikinci confirm lazım deyil
   $("gameLeaveBtn")?.addEventListener("click", leaveRoom);
+
+  /* social.js üçün açıq API (otaqlar siyahısı, dost dəvəti, link ilə giriş) */
+  window.mafiaApp = {
+    getActiveRoom: () => activeRoom,
+
+    joinByCode: async (rawCode) => {
+      const user = await getCurrentUser();
+
+      if (!user) {
+        showMessage("Giriş tələb olunur", "Otağa qoşulmaq üçün əvvəlcə hesabınıza daxil olun.");
+        return false;
+      }
+
+      const code = String(rawCode || "").trim().toUpperCase();
+
+      if (activeRoom && activeRoom.room_code === code) return true;
+
+      if (activeRoomId) {
+        showMessage("Artıq otaqdasan", "Başqa otağa keçmək üçün əvvəlcə cari otaqdan çıx.");
+        return false;
+      }
+
+      await joinRoom(code, {});
+      return true;
+    }
+  };
 
   /* =========================================
      INITIALIZATION
