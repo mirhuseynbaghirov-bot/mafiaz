@@ -235,6 +235,8 @@
     if (message) message.textContent = "";
 
     try {
+      try { sessionStorage.setItem("mafiaOAuthReturn", "1"); } catch (e) { /* ignore */ }
+
       const { error } = await mafiaSupabase.auth.signInWithOAuth({
         provider: "google",
         options: {
@@ -649,6 +651,8 @@
   mafiaSupabase.auth.onAuthStateChange((event, session) => {
     const user = session?.user || null;
 
+    console.log("AUTH EVENT:", event, user?.email || null, user?.user_metadata || null);
+
     // Çıxış edilibsə, ad seçimi pəncərəsini bağla
     if (!user) closeUsernamePrompt();
 
@@ -656,7 +660,36 @@
     checkUsernameRequirement(user);
   });
 
+  // Google/Supabase xəta ilə geri qaytarıbsa (URL-də error=...), ekranda göstər
+  function showOAuthReturnError() {
+    const query = new URLSearchParams(window.location.search);
+    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+
+    const raw =
+      query.get("error_description") ||
+      hash.get("error_description") ||
+      query.get("error") ||
+      hash.get("error");
+
+    if (!raw) return;
+
+    const text = raw.replace(/\+/g, " ");
+    console.error("OAuth qayıdış xətası:", text);
+
+    openAuthModal(
+      "GİRİŞ ALINMADI",
+      `<p id="oauthErrorText" class="room-form-message"></p>`
+    );
+
+    const box = document.getElementById("oauthErrorText");
+    if (box) box.textContent = text;
+
+    history.replaceState(null, "", window.location.pathname);
+  }
+
   async function initializeAuth() {
+    showOAuthReturnError();
+
     const { data, error } = await mafiaSupabase.auth.getSession();
 
     if (error) {
