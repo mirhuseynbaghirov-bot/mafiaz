@@ -96,7 +96,7 @@
 
     const side = document.querySelector(".game-sidebar");
     if (side && !panel.isConnected) side.appendChild(panel);
-    if (!curtain.isConnected) document.body.append(curtain, toast);
+    if (!curtain.isConnected) { $("gameScreen").append(curtain); document.body.append(toast); }
 
     const { data: old, error } = await db.from("room_messages").select("*").eq("room_id", roomId).order("id").limit(80);
     if (error) addMsg({ system: true, body: "Chat hazır deyil: chat-setup.sql işlədilməyib." });
