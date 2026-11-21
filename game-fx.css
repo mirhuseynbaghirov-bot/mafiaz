@@ -1,0 +1,68 @@
+/* game-fx.css — game-chat.css-dən sonra yüklə */
+:root{--aim:#ff3b52}
+
+/* avatarlar */
+svg.av{width:100%;height:100%;display:block}
+.av .eye{transform-box:fill-box;transform-origin:center;animation:avBlink 5s infinite}
+@keyframes avBlink{0%,92%,100%{transform:scaleY(1)}95%{transform:scaleY(.08)}}
+.game-player-avatar,.lobby-player-card .lobby-player-avatar{overflow:hidden;padding:0;background:#15131a;position:relative}
+.game-player-avatar{width:64px!important;height:64px!important}
+.game-player-card:not(.dead) .av{animation:breathe 4s ease-in-out infinite;transform-origin:50% 100%}
+@keyframes breathe{50%{transform:scale(1.05)}}
+.game-player-card.dead .game-player-avatar::after{content:"";position:absolute;left:56%;top:30%;width:10px;height:10px;border-radius:50%;
+  background:radial-gradient(#000 38%,#8a2433 62%,transparent 66%);box-shadow:0 0 0 3px rgba(0,0,0,.25)}
+.game-player-card.dead .av{filter:grayscale(1) brightness(.6)}
+
+/* hədəfə nişan (oyunçu kartı) */
+.game-player-card.is-aimed{box-shadow:inset 0 0 0 2px var(--aim),inset 0 0 34px color-mix(in srgb,var(--aim) 35%,transparent);animation:aimPulse 1s infinite}
+@keyframes aimPulse{50%{transform:scale(1.03)}}
+
+/* hədəf önizləməsi (düymənin üstündə) */
+.fx-preview{display:flex;flex-direction:column;align-items:center;gap:6px;margin:14px 0 4px}
+.fx-av{position:relative;width:104px;height:104px}
+.fx-av-in{position:absolute;inset:0;border-radius:50%;overflow:hidden;border:2px solid var(--aim);box-shadow:0 0 28px color-mix(in srgb,var(--aim) 55%,transparent)}
+.fx-ret{position:absolute;inset:-14px;border-radius:50%;border:2px dashed var(--aim);animation:spin 5s linear infinite}
+.fx-ret::before,.fx-ret::after{content:"";position:absolute;background:var(--aim)}
+.fx-ret::before{left:50%;top:-8px;bottom:-8px;width:2px;margin-left:-1px}
+.fx-ret::after{top:50%;left:-8px;right:-8px;height:2px;margin-top:-1px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.fx-preview.locked .fx-ret{animation:lockOn .45s cubic-bezier(.2,1.6,.4,1) forwards;border-style:solid}
+@keyframes lockOn{from{inset:-34px;opacity:.4}to{inset:-6px;opacity:1}}
+.fx-preview b{font:700 18px var(--hud);letter-spacing:3px;text-transform:uppercase}
+.fx-preview small{font:11px var(--type);letter-spacing:5px;color:var(--aim)}
+
+/* öldürmə effekti */
+.fx-kill-ret{position:fixed;z-index:120;width:150px;height:150px;border:3px solid #ff3b52;border-radius:50%;pointer-events:none;
+  box-shadow:0 0 30px rgba(255,59,82,.7);animation:killRet 1.6s both}
+.fx-kill-ret::before,.fx-kill-ret::after{content:"";position:absolute;background:#ff3b52}
+.fx-kill-ret::before{left:-35%;right:-35%;top:50%;height:2px}
+.fx-kill-ret::after{top:-35%;bottom:-35%;left:50%;width:2px}
+@keyframes killRet{0%{transform:translate(-50%,-50%) scale(4) rotate(90deg);opacity:0}
+  35%{opacity:1}45%{transform:translate(-50%,-50%) scale(1) rotate(0)}
+  50%{transform:translate(-50%,-50%) scale(1.25)}55%,85%{transform:translate(-50%,-50%) scale(1)}100%{transform:translate(-50%,-50%) scale(.6);opacity:0}}
+.fx-flash{position:fixed;inset:0;z-index:125;pointer-events:none;background:radial-gradient(circle,rgba(255,255,255,.85),rgba(255,40,60,.55) 55%,transparent 80%);animation:flash .45s both}
+@keyframes flash{from{opacity:1}to{opacity:0}}
+.fx-shake{animation:shake .45s}
+@keyframes shake{10%,50%,90%{transform:translate(-7px,3px)}30%,70%{transform:translate(7px,-4px)}}
+
+/* faza başlığı (kino zolaqları) */
+.fx-title{position:fixed;inset:0;z-index:130;pointer-events:none;display:grid;place-items:center;text-align:center}
+.fx-title i{position:absolute;left:0;right:0;height:15vh;background:#000}
+.fx-title i:first-child{top:0;animation:barT 2.6s both}.fx-title i:nth-child(2){bottom:0;animation:barB 2.6s both}
+@keyframes barT{0%{transform:translateY(-100%)}12%,86%{transform:translateY(0)}100%{transform:translateY(-100%)}}
+@keyframes barB{0%{transform:translateY(100%)}12%,86%{transform:translateY(0)}100%{transform:translateY(100%)}}
+.fx-title div{animation:ttl 2.6s both}
+@keyframes ttl{0%,10%{opacity:0;letter-spacing:30px}30%,78%{opacity:1;letter-spacing:12px}100%{opacity:0;letter-spacing:18px}}
+.fx-title h1{font:700 clamp(38px,12vw,76px) var(--hud);color:#f0e0b8;text-shadow:0 0 40px rgba(198,161,91,.6)}
+.fx-title p{margin-top:8px;font:13px var(--type);letter-spacing:6px;color:#8b8590}
+.fx-title.red h1{color:#ff3b52;text-shadow:0 0 40px rgba(255,59,82,.8)}
+
+/* hissəciklər */
+.fx-p{position:fixed;bottom:-10px;border-radius:50%;pointer-events:none;z-index:-1;background:#9db4ff;box-shadow:0 0 8px currentColor;opacity:0;animation:rise linear infinite}
+.is-day .fx-p{background:#ffc46e}.is-finished .fx-p{background:#ff3b52}
+@keyframes rise{10%{opacity:.8}90%{opacity:.5}to{transform:translate(40px,-110vh);opacity:0}}
+
+/* səs düyməsi */
+#fxMute{position:fixed;left:12px;bottom:12px;z-index:60;padding:8px 12px;border:1px solid var(--gold-border);background:rgba(0,0,0,.65);color:var(--gold);font:11px var(--type);letter-spacing:2px;border-radius:0}
+
+@media(prefers-reduced-motion:reduce){.fx-p,.av,.av .eye,.fx-ret{animation:none!important}}
