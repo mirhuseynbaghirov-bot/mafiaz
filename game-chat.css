@@ -1,0 +1,42 @@
+/* game-chat.css — game-theme.css-dən sonra yüklə */
+.game-chat{padding:18px!important;display:flex;flex-direction:column;gap:10px}
+.chat-tabs{display:flex;gap:6px}
+.chat-tabs button{flex:1;padding:9px;border:1px solid rgba(255,255,255,.1);background:#14131a;color:#99939b;font:600 12px var(--hud);letter-spacing:2px;border-radius:0}
+.chat-tabs button.active{color:#fff;border-color:var(--gold);background:rgba(198,161,91,.12)}
+.chat-tabs button[data-tab="mafia"].active{border-color:var(--neon);background:rgba(255,59,82,.14)}
+.chat-phase{padding:8px 10px;text-align:center;font:600 13px var(--hud);letter-spacing:3px;background:#0b0b10;border:1px solid rgba(255,255,255,.07)}
+.chat-phase.night{color:#9db4ff}.chat-phase.day{color:#ffc46e}.chat-phase.end{color:var(--neon)}
+.chat-list{height:300px;overflow-y:auto;display:flex;flex-direction:column;gap:7px;padding:4px;scroll-behavior:smooth}
+.chat-msg{max-width:88%;padding:8px 11px;background:#1b1a21;border-left:3px solid #4a444d;font-size:13px;line-height:1.45;word-break:break-word;animation:msgIn .25s both}
+.chat-msg b{display:block;margin-bottom:2px;font:600 11px var(--hud);letter-spacing:1.5px;color:var(--gold)}
+.chat-msg.mine{align-self:flex-end;border-left-color:var(--gold);background:#251f16}
+.chat-msg.mafia{border-left-color:var(--neon);background:#2a1218}.chat-msg.mafia b{color:var(--neon)}
+.chat-msg.system{align-self:center;max-width:100%;text-align:center;border:0;background:none;font:12px var(--type);color:#8b8590}
+@keyframes msgIn{from{opacity:0;transform:translateY(6px)}}
+.chat-form{display:flex;gap:6px}
+.chat-form input{flex:1;min-width:0;padding:11px 12px;background:#0b0b10;border:1px solid rgba(255,255,255,.12);color:#eee;font-size:16px;outline:none;border-radius:0}
+.chat-form input:focus{border-color:var(--gold)}
+.chat-form input:disabled{opacity:.45}
+.chat-form button{padding:0 14px;border:1px solid var(--gold);background:rgba(198,161,91,.14);color:var(--gold);font:700 13px var(--hud);border-radius:0}
+.chat-form button:disabled{opacity:.35}
+#chatMic{border-style:dashed;font-size:10px;letter-spacing:1px}
+
+/* müzakirə vaxtı səsvermə kilidlidir */
+.game-screen.is-discussion .game-target-list,.game-screen.is-discussion #gameActionBtn{pointer-events:none;opacity:.35;filter:grayscale(.6)}
+
+/* gecə pərdəsi */
+.night-curtain{position:fixed;inset:0;z-index:90;display:grid;place-items:center;text-align:center;padding:30px;
+  background:radial-gradient(circle,rgba(5,6,15,.93),#000 85%);animation:curtain .8s both;color:#9db4ff}
+.night-curtain .gi{width:64px;height:64px;margin-bottom:18px;animation:blink 4s infinite}
+.night-curtain h2{font:700 34px var(--hud);letter-spacing:8px}
+.night-curtain p{margin-top:10px;font:13px var(--type);color:#6c7aa8}
+@keyframes curtain{from{opacity:0}}
+@keyframes blink{0%,90%,100%{transform:scaleY(1)}95%{transform:scaleY(.1)}}
+
+/* səhər / səsvermə elanı */
+.game-toast{position:fixed;left:50%;top:22px;transform:translateX(-50%);z-index:95;max-width:90vw;padding:14px 26px;
+  background:#120d10;border:1px solid var(--gold);color:#f0e0b8;font:600 16px var(--hud);letter-spacing:2px;text-align:center;
+  box-shadow:0 0 40px rgba(0,0,0,.7);animation:toast .5s both}
+@keyframes toast{from{opacity:0;transform:translate(-50%,-20px)}}
+
+@media(min-width:851px){.chat-list{height:340px}}
