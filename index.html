@@ -20,6 +20,7 @@
     <link rel="stylesheet" href="game-chat.css">
     <link rel="stylesheet" href="game-fx.css">
     <link rel="stylesheet" href="game-table.css">
+    <link rel="stylesheet" href="game-extra.css">
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
     <script src="app.js" defer></script>
@@ -426,7 +427,8 @@
                             <label for="gameVotingTime">Səsvermə müddəti</label>
                             <select id="gameVotingTime">
                                 <option value="15">15 saniyə</option>
-                                <option value="30" selected>30 saniyə</option>
+                                <option value="20" selected>20 saniyə</option>
+                                <option value="30">30 saniyə</option>
                                 <option value="45">45 saniyə</option>
                                 <option value="60">1 dəqiqə</option>
                                 <option value="90">1.5 dəqiqə</option>
@@ -602,15 +604,11 @@
             <h3>Oyun idarəetməsi</h3>
 
             <p>
-                Mərhələni yalnız otaq sahibi tamamlaya bilər.
+                Gecə və səsvermə avtomatik bağlanır. Host cihazı bunu idarə edir.
             </p>
 
             <button id="finishNightBtn" type="button" hidden>
                 GECƏNİ TAMAMLA
-            </button>
-
-            <button id="finishVotingBtn" type="button" hidden>
-                SƏSVERMƏNİ TAMAMLA
             </button>
 
         </div>
