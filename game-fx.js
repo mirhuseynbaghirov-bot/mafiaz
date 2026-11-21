@@ -5,6 +5,17 @@
   const scr = () => $("gameScreen");
   const visible = () => scr() && !scr().hidden;
 
+  /* Azərbaycan hərfləri üçün təhlükəsiz böyük hərf (İ→I normallaşdırılır) */
+  const up = (s) => (s || "").toLocaleUpperCase("az-AZ").replace(/İ/g, "I");
+  const isNightText = (s) => /GEC[ƏE]/.test(up(s));
+  const isEndText = (s) => up(s).includes("BITDI");
+
+  /* ================= EFEKT LAYI: bütün müvəqqəti efektlər buradadır =================
+     fixed + contain:paint → heç bir efekt səhifəni aşağı uzada bilməz (boşluq bug-ı) */
+  const layer = document.createElement("div");
+  layer.id = "fxLayer";
+  document.body.appendChild(layer);
+
   /* ================= AVATARLAR (hər ad üçün unikal personaj) ================= */
   const hash = (s) => { let h = 2166136261; for (const c of s.toLowerCase()) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return h >>> 0; };
   const pick = (a, h, sh) => a[(h >>> sh) % a.length];
@@ -113,7 +124,7 @@
       t.innerHTML = "<i></i><i></i><div><h1></h1><p></p></div>";
       t.querySelector("h1").textContent = it.text;
       t.querySelector("p").textContent = it.sub;
-      document.body.appendChild(t);
+      layer.appendChild(t);
       setTimeout(() => { t.remove(); setTimeout(nextTitle, 150); }, TITLE_MS);
     }, it.wait);
   }
@@ -126,14 +137,14 @@
   function killFx(name) {
     const me = name === "Sən";
     title(me ? "ÖLDÜRÜLDÜN" : name.toUpperCase(), true, me ? "Sən artıq izləyicisən" : "ELİMİNƏ EDİLDİ", () => {
-      const card = [...document.querySelectorAll("#gamePlayers .game-player-card")].find((c) => c.querySelector(".game-player-name")?.textContent.trim() === name);
+      const card = findCard(name);
       if (card) {
         const r = card.getBoundingClientRect();
         if (r.bottom > 0 && r.top < innerHeight) {
           const ret = document.createElement("div");
           ret.className = "fx-kill-ret";
           ret.style.left = r.left + r.width / 2 + "px"; ret.style.top = r.top + r.height / 2 + "px";
-          document.body.appendChild(ret); setTimeout(() => ret.remove(), 1700);
+          layer.appendChild(ret); setTimeout(() => ret.remove(), 1700);
         }
       }
       gunShot(name);
@@ -150,10 +161,12 @@
     <path d="M18 19h66" stroke="#8b909c" stroke-width="2" stroke-linecap="round"/>
     <rect x="14" y="11" width="6" height="5" fill="#23252b"/>
   </svg>`;
-  const findCard = (name) => [...document.querySelectorAll("#gamePlayers .game-player-card")].find((c) => c.querySelector(".game-player-name")?.textContent.trim() === name);
+  function findCard(name) {
+    return [...document.querySelectorAll("#gamePlayers .game-player-card")].find((c) => c.querySelector(".game-player-name")?.textContent.trim() === name);
+  }
 
   function shotFx() {
-    const f = document.createElement("div"); f.className = "fx-flash"; document.body.appendChild(f); setTimeout(() => f.remove(), 500);
+    const f = document.createElement("div"); f.className = "fx-flash"; layer.appendChild(f); setTimeout(() => f.remove(), 500);
     scr()?.classList.add("fx-shake"); setTimeout(() => scr()?.classList.remove("fx-shake"), 500);
     sfx.shot(); navigator.vibrate?.([90, 40, 180]);
   }
@@ -170,7 +183,7 @@
     gun.className = "fx-gun";
     gun.style.cssText = `left:${cx}px;top:${cy}px;--a:${ang}deg`;
     gun.innerHTML = GUN_SVG;
-    document.body.appendChild(gun);
+    layer.appendChild(gun);
     sfx.tick();
 
     setTimeout(() => {                                   // atəş
@@ -180,9 +193,9 @@
       const mz = document.createElement("div");
       mz.className = "fx-muzzle";
       mz.style.cssText = `left:${cx + Math.cos(rad) * 46}px;top:${cy + Math.sin(rad) * 46}px`;
-      document.body.append(tr, mz);
+      layer.append(tr, mz);
       gun.classList.add("fire");
-      const hit = findCard(name); hit?.classList.add("fx-hit");
+      findCard(name)?.classList.add("fx-hit");
       shotFx();
       setTimeout(() => { tr.remove(); mz.remove(); findCard(name)?.classList.remove("fx-hit"); }, 700);
     }, 1100);
@@ -191,7 +204,7 @@
 
   /* ================= SƏHƏR QƏZETİ ================= */
   const deathLog = [];
-  let prevType = null, morning = null;
+  let prevType = null, morning = null, lastDeathT = 0;
   const rnd = (a) => a[Math.floor(Math.random() * a.length)];
   const HEAD1 = [
     (n) => `${n} SƏHƏR GÖZ AÇMADI`,
@@ -232,7 +245,7 @@
       ph.appendChild(fig);
     });
     if (!names.length) ph.remove();
-    document.body.appendChild(el);
+    layer.appendChild(el);
     noise(0.25, 0.4, 1800); tone(120, 0.2, 0.3);
     const close = () => { el.classList.add("bye"); setTimeout(() => el.remove(), 350); };
     el.addEventListener("click", close);
@@ -241,9 +254,12 @@
 
   function newsLoop() {
     if (!morning || !visible()) return;
-    if (fxBusy || Date.now() - morning.t < 1800) return;     // başlıqlar bitsin, ölənlər toplansın
+    const now = Date.now();
+    const waited = now - morning.t;
+    /* başlıqlar bitsin + son ölümdən 1.8 san keçsin; amma 15 san-dən çox gözləmə */
+    if (waited < 15000 && (fxBusy || now - Math.max(morning.t, lastDeathT) < 1800)) return;
     const m = morning; morning = null;
-    const dead = deathLog.filter((d) => !d.done && d.t >= m.t - 6000).map((d) => d.name);
+    const dead = deathLog.filter((d) => !d.done).map((d) => d.name);
     deathLog.forEach((d) => (d.done = true));
     newspaper(dead, m.round);
   }
@@ -257,17 +273,21 @@
       if (n) cur[n] = !c.classList.contains("dead");
     });
     if (!Object.keys(cur).length) return;
-    if (prevAlive) for (const n in cur) if (prevAlive[n] === true && cur[n] === false) { deathLog.push({ name: n, t: Date.now(), done: false }); killFx(n); }
+    if (prevAlive) for (const n in cur) if (prevAlive[n] === true && cur[n] === false) {
+      lastDeathT = Date.now();
+      deathLog.push({ name: n, t: lastDeathT, done: false });
+      killFx(n);
+    }
     prevAlive = { ...(prevAlive || {}), ...cur };
   }
 
   /* ================= HƏDƏFƏ NİŞAN ================= */
   let aimName = null;
-  const role = () => ($("myRoleName")?.textContent || "").trim();
-  const isNight = () => ($("gamePhase")?.textContent || "").includes("GECƏ");
+  const role = () => up($("myRoleName")?.textContent).trim();
+  const isNight = () => isNightText($("gamePhase")?.textContent);
   function aimStyle() {
     if (!isNight()) return ["#ffb347", "ŞÜBHƏLİ"];
-    return { "MAFİYA": ["#ff3b52", "HƏDƏF"], "HƏKİM": ["#3dd68c", "QORUNUR"], "DETEKTİV": ["#f0b13c", "ARAŞDIRILIR"] }[role()] || ["#ffb347", "SEÇİLDİ"];
+    return { "MAFIYA": ["#ff3b52", "HƏDƏF"], "HƏKIM": ["#3dd68c", "QORUNUR"], "DETEKTIV": ["#f0b13c", "ARAŞDIRILIR"] }[role()] || ["#ffb347", "SEÇİLDİ"];
   }
   function showPreview() {
     const [color, verb] = aimStyle();
@@ -301,12 +321,16 @@
     const r = $("gameRound")?.textContent.trim(), p = $("gamePhase")?.textContent.trim();
     if (!r || !p || r + p === lastKey) return;
     lastKey = r + p; aimName = null;
-    const type = p.includes("GECƏ") ? "night" : p.includes("BİTDİ") ? "end" : "day";
-    if (prevType === "night" && type === "day") morning = { t: Date.now(), round: r };
+    const type = isNightText(p) ? "night" : isEndText(p) ? "end" : "day";
+    console.log("[fx] faza:", r, "|", p, "→", type);
+
+    if (type === "night") { deathLog.length = 0; morning = null; }          // yeni gecə: köhnə ölümləri sil
+    if (prevType === "night" && type !== "night") morning = { t: Date.now(), round: r };   // gecə → səhər
     prevType = type;
+
     if ($("fxPreview")) $("fxPreview").hidden = true;
-    if (p.includes("BİTDİ")) return title("OYUN BİTDİ", true);
-    title(r, false, p, () => (p.includes("GECƏ") ? sfx.night() : sfx.day()));
+    if (type === "end") return title("OYUN BİTDİ", true);
+    title(r, false, p, () => (type === "night" ? sfx.night() : sfx.day()));
   }
 
   /* ================= ATMOSFER ================= */
@@ -318,12 +342,15 @@
 
   function particles() {
     if (!visible() || scr().querySelector(".fx-p")) return;
+    const wrap = document.createElement("div");      // hissəciklər öz qutusunda kəsilir → səhifə uzanmır
+    wrap.className = "fx-pwrap";
     for (let i = 0; i < 30; i++) {
       const s = document.createElement("span");
       s.className = "fx-p";
       s.style.cssText = `left:${Math.random() * 100}%;width:${1 + Math.random() * 3}px;height:${1 + Math.random() * 3}px;animation-duration:${8 + Math.random() * 14}s;animation-delay:${-Math.random() * 20}s`;
-      scr().appendChild(s);
+      wrap.appendChild(s);
     }
+    scr().appendChild(wrap);
   }
 
   /* ================= GECƏ TAYMERİ (7 san, düymə lazım deyil) ================= */
@@ -359,13 +386,20 @@
     if (c && c.parentNode !== document.body) document.body.appendChild(c);
   }
 
-  new MutationObserver(() => {
+  /* ================= ƏSAS DÖVR (observer + ehtiyat intervalı) ================= */
+  function tick() {
     const v = visible();
     mute.hidden = !v;
     paint();
-    if (!v) { prevAlive = null; lastKey = null; aimName = null; prevType = null; morning = null; deathLog.length = 0; resetTitles(); return; }
+    if (!v) {
+      prevAlive = null; lastKey = null; aimName = null; prevType = null; morning = null;
+      deathLog.length = 0; resetTitles();
+      return;
+    }
     liftCurtain(); seatPlayers();
     particles(); checkPhase(); scanDeaths(); markAim();
-  }).observe(document.body, { childList: true, subtree: true, characterData: true });
+  }
+  new MutationObserver(tick).observe(document.body, { childList: true, subtree: true, characterData: true });
+  setInterval(tick, 500);   // DOM dəyişməsə belə faza/ölüm yoxlansın
   paint();
 })();
