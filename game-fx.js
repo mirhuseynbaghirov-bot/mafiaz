@@ -218,6 +218,33 @@
     }
   }
 
+  /* ================= GECƏ TAYMERİ (7 san, düymə lazım deyil) ================= */
+  const NIGHT_MS = 7000;
+  const nTimer = document.createElement("div");
+  nTimer.id = "fxNightTimer"; nTimer.hidden = true;
+  nTimer.innerHTML = "<span></span><div><i></i></div>";
+  document.body.appendChild(nTimer);
+  let nt = { key: null, end: 0, fired: 0 };
+
+  function nightTimer() {
+    if (!visible() || !isNight() || !lastKey) { nTimer.hidden = true; return; }
+    if (nt.key !== lastKey) nt = { key: lastKey, end: 0, fired: 0 };
+    if (!nt.end) {                       // başlıq animasiyaları bitəndən sonra başla
+      if (fxBusy) { nTimer.hidden = true; return; }
+      nt.end = Date.now() + NIGHT_MS;
+    }
+    const left = Math.max(0, nt.end - Date.now());
+    nTimer.hidden = false;
+    nTimer.querySelector("span").textContent = "GECƏ · " + Math.ceil(left / 1000);
+    nTimer.querySelector("i").style.width = (left / NIGHT_MS) * 100 + "%";
+    const host = $("gameHostControls") && !$("gameHostControls").hidden;
+    if (left === 0 && host && Date.now() - nt.fired > 2500) {
+      nt.fired = Date.now();
+      $("finishNightBtn")?.click();      // yalnız host-un cihazı gecəni bağlayır
+    }
+  }
+  setInterval(nightTimer, 200);
+
   /* gecə pərdəsini body-yə köçür: gameScreen-in transform/isolation-ından asılı olmasın */
   function liftCurtain() {
     const c = document.querySelector(".night-curtain");
