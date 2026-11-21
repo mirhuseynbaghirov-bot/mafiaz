@@ -28,7 +28,8 @@
   const curtain = document.createElement("div");
   curtain.className = "night-curtain";
   curtain.hidden = true;
-  curtain.innerHTML = '<div><svg class="gi" viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><path d="M3 21L21 3"/></svg><h2>GÖZLƏRİNİ YUM</h2><p>Şəhər yatır. Mafiya öz işini görür...</p></div>';
+  curtain.innerHTML = '<div><svg class="gi" viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><path d="M3 21L21 3"/></svg><h2>GÖZLƏRİNİ YUM</h2><p>Şəhər yatır. Mafiya öz işini görür...</p><button type="button" id="curtainFinish" hidden>GECƏNİ TAMAMLA</button></div>';
+  curtain.addEventListener("click", (e) => { if (e.target.id === "curtainFinish") $("finishNightBtn")?.click(); });
 
   const toast = document.createElement("div");
   toast.className = "game-toast";
@@ -158,6 +159,7 @@
     /* gecə pərdəsi: xüsusi hərəkəti olmayanlar üçün */
     const acts = ["MAFİYA", "HƏKİM", "DETEKTİV"].includes(role());
     curtain.hidden = !(ph === "night" && !acts && alive);
+    const cf = $("curtainFinish"); if (cf) cf.hidden = !!$("gameHostControls")?.hidden;
 
     /* tablar və yazma icazəsi */
     panel.querySelector('[data-tab="mafia"]').hidden = !isMafia();
