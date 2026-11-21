@@ -3,6 +3,17 @@
 /* [hidden] həmişə gizlətsin (display:grid/flex onu ləğv etməsin) */
 [hidden]{display:none!important}
 
+/* ================= BOŞLUQ / UZANMA FİKSİ ================= */
+/* bütün müvəqqəti efektlər (tapança, qəzet, başlıq, flaş...) bu laydadır.
+   fixed + contain:paint → içindəki heç nə səhifəni aşağı/yana uzada bilməz */
+#fxLayer{position:fixed;inset:0;z-index:200;pointer-events:none;contain:layout paint}
+#fxLayer>.fx-news{pointer-events:auto}
+/* hissəciklər öz qutusunda kəsilir */
+.fx-pwrap{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+/* titrəmə / animasiya yana taşma yaratmasın */
+html{overflow-x:hidden}
+body{overflow-x:clip}
+
 /* ================= FADE / QARALMA ================= */
 /* faza başlığı: kino zolaqlarına əlavə olaraq TAM EKRAN qaralma */
 .fx-title::before{content:"";position:absolute;inset:0;background:#000;animation:fxDim 2.6s both}
@@ -14,7 +25,7 @@
 body.fx-titling .game-toast{visibility:hidden}
 
 /* gecə pərdəsi: tam ekran, tam qara, body-dən asılıdır */
-.night-curtain{position:fixed!important;inset:0;width:100vw;height:100vh;height:100dvh;z-index:90;
+.night-curtain{position:fixed!important;inset:0;width:100%;height:100%;z-index:90;
   background:radial-gradient(circle at 50% 45%,#070a1a 0,#000 85%)!important;
   animation:curtainIn .9s both}
 @keyframes curtainIn{from{opacity:0}to{opacity:1}}
