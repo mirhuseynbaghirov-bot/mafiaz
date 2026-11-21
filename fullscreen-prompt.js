@@ -2,6 +2,14 @@
 (() => {
   "use strict";
 
+  // Google girişindən yenicə qayıdıbsa, pop-up göstərmə (giriş/ad pəncərəsinə mane olmasın)
+  try {
+    if (sessionStorage.getItem("mafiaOAuthReturn")) {
+      sessionStorage.removeItem("mafiaOAuthReturn");
+      return;
+    }
+  } catch (e) { /* ignore */ }
+
   const root = document.documentElement;
   const canFs = !!(root.requestFullscreen || root.webkitRequestFullscreen);
   const standalone =
