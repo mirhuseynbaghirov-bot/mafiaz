@@ -25,7 +25,7 @@
 .game-screen.is-discussion .game-target-list,.game-screen.is-discussion #gameActionBtn{pointer-events:none;opacity:.35;filter:grayscale(.6)}
 
 /* gecə pərdəsi */
-.night-curtain{position:fixed;inset:0;z-index:90;display:grid;place-items:center;text-align:center;padding:30px;
+.night-curtain{position:fixed;inset:0;z-index:20;pointer-events:none;display:grid;place-items:center;text-align:center;padding:30px;
   background:radial-gradient(circle,rgba(5,6,15,.93),#000 85%);animation:curtain .8s both;color:#9db4ff}
 .night-curtain .gi{width:64px;height:64px;margin-bottom:18px;animation:blink 4s infinite}
 .night-curtain h2{font:700 34px var(--hud);letter-spacing:8px}
@@ -40,3 +40,7 @@
 @keyframes toast{from{opacity:0;transform:translate(-50%,-20px)}}
 
 @media(min-width:851px){.chat-list{height:340px}}
+
+/* host düymələri və çıxış həmişə pərdənin üstündə qalır */
+.game-host-controls,#gameLeaveBtn{position:relative;z-index:30}
+.game-host-controls{background:#0d0c11!important;border-color:var(--gold)!important}
