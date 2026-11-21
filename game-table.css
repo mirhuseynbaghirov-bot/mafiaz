@@ -19,6 +19,14 @@ body.fx-titling .game-toast{visibility:hidden}
   animation:curtainIn .9s both}
 @keyframes curtainIn{from{opacity:0}to{opacity:1}}
 
+/* ================= GECƏ TAYMERİ ================= */
+/* "Gecəni tamamla" düymələri artıq lazım deyil */
+#finishNightBtn,#curtainFinish{display:none!important}
+#fxNightTimer{position:fixed;left:50%;top:18px;translate:-50% 0;z-index:95;width:min(260px,70vw);text-align:center;pointer-events:none}
+#fxNightTimer span{display:block;font:700 18px var(--hud);letter-spacing:5px;color:#9db4ff;text-shadow:0 0 14px rgba(157,180,255,.6)}
+#fxNightTimer div{margin-top:6px;height:3px;background:rgba(157,180,255,.2)}
+#fxNightTimer i{display:block;height:100%;background:#9db4ff;box-shadow:0 0 10px #9db4ff}
+
 /* ================= 3D MASA ================= */
 #gamePlayers.fx-table{display:block!important;position:relative;isolation:isolate;
   height:min(125vw,540px);min-height:400px;margin-top:6px;overflow:visible}
