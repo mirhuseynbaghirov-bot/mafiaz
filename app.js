@@ -601,9 +601,7 @@
 
     subscribeToRoomChanges();
 
-    if (activeRoom.status === "in_progress") {
-      await displayMyRole();
-    }
+  
   }
 
   /* =========================================
@@ -1751,7 +1749,8 @@
             previousStatus !== "in_progress" &&
             activeRoom.status === "in_progress"
           ) {
-            await displayMyRole();
+            myGameRole = await getMyGameRole();
+            showGameScreen();
           }
         }
       )
