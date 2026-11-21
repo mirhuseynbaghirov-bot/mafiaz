@@ -45,6 +45,26 @@
     });
   }
 
+  /* ================= 3D MASA: oyunçular masanın ətrafında ================= */
+  function seatPlayers() {
+    const box = $("gamePlayers");
+    if (!box) return;
+    box.classList.add("fx-table");
+    const cards = [...box.querySelectorAll(".game-player-card")];
+    if (!cards.length || cards.every((c) => c.dataset.seat)) return;
+    const n = cards.length;
+    let me = cards.findIndex((c) => c.querySelector(".game-player-name")?.textContent.trim() === "Sən");
+    if (me < 0) me = 0;
+    cards.forEach((c, i) => {
+      const k = (i - me + n) % n;                    // "Sən" həmişə aşağıda (k=0)
+      const a = Math.PI / 2 + (k * 2 * Math.PI) / n;
+      const x = 50 + 39 * Math.cos(a), y = 50 + 35 * Math.sin(a);
+      const depth = (Math.sin(a) + 1) / 2;           // 0 = arxa, 1 = ön
+      c.dataset.seat = k;
+      c.style.cssText = `left:${x.toFixed(1)}%;top:${y.toFixed(1)}%;scale:${(0.78 + 0.27 * depth).toFixed(2)};z-index:${depth < 0.35 ? 1 : 10 + Math.round(depth * 10)}`;
+    });
+  }
+
   /* ================= SƏS (WebAudio, fayl lazım deyil) ================= */
   let ctx = null, muted = localStorage.getItem("fxMute") === "1";
   const ac = () => { if (!ctx) { const A = window.AudioContext || window.webkitAudioContext; if (A) ctx = new A(); } if (ctx && ctx.state === "suspended") ctx.resume(); return ctx; };
@@ -72,33 +92,56 @@
   };
   document.addEventListener("pointerdown", () => ac(), { once: true });
 
-  /* ================= EFEKTLƏR ================= */
-  function title(text, red, sub = "") {
-    const t = document.createElement("div");
-    t.className = "fx-title" + (red ? " red" : "");
-    t.innerHTML = "<i></i><i></i><div><h1></h1><p></p></div>";
-    t.querySelector("h1").textContent = text;
-    t.querySelector("p").textContent = sub;
-    document.body.appendChild(t);
-    setTimeout(() => t.remove(), 2700);
+  /* ================= EFEKTLƏR (başlıqlar NÖVBƏ ilə, üst-üstə düşmür) ================= */
+  const TITLE_MS = 2600;            // CSS-dəki .fx-title animasiyası ilə eyni olmalıdır
+  const fxQueue = [];
+  let fxBusy = false;
+
+  function title(text, red, sub = "", before = null, wait = 0) {
+    fxQueue.push({ text, red, sub, before, wait });
+    if (!fxBusy) nextTitle();
   }
-  function killFx(name) {
-    const card = [...document.querySelectorAll("#gamePlayers .game-player-card")].find((c) => c.querySelector(".game-player-name")?.textContent.trim() === name);
-    if (card) {
-      const r = card.getBoundingClientRect();
-      if (r.bottom > 0 && r.top < innerHeight) {
-        const ret = document.createElement("div");
-        ret.className = "fx-kill-ret";
-        ret.style.left = r.left + r.width / 2 + "px"; ret.style.top = r.top + r.height / 2 + "px";
-        document.body.appendChild(ret); setTimeout(() => ret.remove(), 1700);
-      }
-    }
+  function nextTitle() {
+    const it = fxQueue.shift();
+    if (!it) { fxBusy = false; document.body.classList.remove("fx-titling"); return; }
+    fxBusy = true;
+    document.body.classList.add("fx-titling");
+    try { it.before?.(); } catch (e) { console.error(e); }
     setTimeout(() => {
-      const f = document.createElement("div"); f.className = "fx-flash"; document.body.appendChild(f); setTimeout(() => f.remove(), 500);
-      scr().classList.add("fx-shake"); setTimeout(() => scr().classList.remove("fx-shake"), 500);
-      sfx.shot(); navigator.vibrate?.([90, 40, 180]);
-    }, 700);
-    setTimeout(() => title(name === "Sən" ? "ÖLDÜRÜLDÜN" : name.toUpperCase(), true, name === "Sən" ? "Sən artıq izləyicisən" : "ELİMİNƏ EDİLDİ"), 900);
+      const t = document.createElement("div");
+      t.className = "fx-title" + (it.red ? " red" : "");
+      t.innerHTML = "<i></i><i></i><div><h1></h1><p></p></div>";
+      t.querySelector("h1").textContent = it.text;
+      t.querySelector("p").textContent = it.sub;
+      document.body.appendChild(t);
+      setTimeout(() => { t.remove(); setTimeout(nextTitle, 150); }, TITLE_MS);
+    }, it.wait);
+  }
+  function resetTitles() {
+    fxQueue.length = 0; fxBusy = false;
+    document.querySelectorAll(".fx-title").forEach((t) => t.remove());
+    document.body.classList.remove("fx-titling");
+  }
+
+  function killFx(name) {
+    const me = name === "Sən";
+    title(me ? "ÖLDÜRÜLDÜN" : name.toUpperCase(), true, me ? "Sən artıq izləyicisən" : "ELİMİNƏ EDİLDİ", () => {
+      const card = [...document.querySelectorAll("#gamePlayers .game-player-card")].find((c) => c.querySelector(".game-player-name")?.textContent.trim() === name);
+      if (card) {
+        const r = card.getBoundingClientRect();
+        if (r.bottom > 0 && r.top < innerHeight) {
+          const ret = document.createElement("div");
+          ret.className = "fx-kill-ret";
+          ret.style.left = r.left + r.width / 2 + "px"; ret.style.top = r.top + r.height / 2 + "px";
+          document.body.appendChild(ret); setTimeout(() => ret.remove(), 1700);
+        }
+      }
+      setTimeout(() => {
+        const f = document.createElement("div"); f.className = "fx-flash"; document.body.appendChild(f); setTimeout(() => f.remove(), 500);
+        scr()?.classList.add("fx-shake"); setTimeout(() => scr()?.classList.remove("fx-shake"), 500);
+        sfx.shot(); navigator.vibrate?.([90, 40, 180]);
+      }, 700);
+    }, 900);
   }
 
   let prevAlive = null;
@@ -155,7 +198,7 @@
     lastKey = r + p; aimName = null;
     if ($("fxPreview")) $("fxPreview").hidden = true;
     if (p.includes("BİTDİ")) return title("OYUN BİTDİ", true);
-    title(r, false, p); p.includes("GECƏ") ? sfx.night() : sfx.day();
+    title(r, false, p, () => (p.includes("GECƏ") ? sfx.night() : sfx.day()));
   }
 
   /* ================= ATMOSFER ================= */
@@ -175,11 +218,18 @@
     }
   }
 
+  /* gecə pərdəsini body-yə köçür: gameScreen-in transform/isolation-ından asılı olmasın */
+  function liftCurtain() {
+    const c = document.querySelector(".night-curtain");
+    if (c && c.parentNode !== document.body) document.body.appendChild(c);
+  }
+
   new MutationObserver(() => {
     const v = visible();
     mute.hidden = !v;
     paint();
-    if (!v) { prevAlive = null; lastKey = null; aimName = null; return; }
+    if (!v) { prevAlive = null; lastKey = null; aimName = null; resetTitles(); return; }
+    liftCurtain(); seatPlayers();
     particles(); checkPhase(); scanDeaths(); markAim();
   }).observe(document.body, { childList: true, subtree: true, characterData: true });
   paint();
