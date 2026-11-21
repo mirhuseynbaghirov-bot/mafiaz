@@ -6,7 +6,7 @@
   const $ = (id) => document.getElementById(id);
 
   let roomId = null, me = null, myName = "Oyunçu", tab = "city", alive = true;
-  let discSeconds = 120, channel = null, tickTimer = null, seen = new Set(), lastKey = "", lastAlive = null;
+  let channel = null, tickTimer = null, seen = new Set(), lastKey = "", lastAlive = null;
 
   const panel = document.createElement("div");
   panel.id = "gameChat";
@@ -43,6 +43,44 @@
   };
   const round = () => parseInt(($("gameRound")?.textContent || "").replace(/\D/g, "")) || 1;
 
+  const clock = (ms) => { const x = Math.max(0, Math.ceil(ms / 1000)); return String(Math.floor(x / 60)).padStart(2, "0") + ":" + String(x % 60).padStart(2, "0"); };
+
+  /* ---------- BOTLAR DANIŞIR (yalnız host cihazı yazır, təkrar olmasın) ---------- */
+  const BOT_OPEN = ["Salam hamıya. Kimsə nəsə bilir?", "Gecə çətin keçdi. Diqqətli olaq.", "Tələsməyək, əvvəl hamını dinləyək.", "Mənim şübhələrim var, amma hələ danışmayacam."];
+  const BOT_SUSPECT = [(n) => `${n} bu gün çox sakitdir, şübhəli görünür.`, (n) => `Mənə elə gəlir ki, ${n} nəsə gizlədir.`, (n) => `${n}, özünü izah edə bilərsən?`, (n) => `Səsimi ${n}-ə verməyi düşünürəm.`];
+  const BOT_DEFEND = ["Mən günahsızam, mənə güvənin.", "Məni şübhəli bilməyin, mən şəhərdənəm.", "Səhv adamı çıxarmayaq, ehtiyatlı olun."];
+  let botNext = 0, botRound = "", botOpened = false, botList = [], botListAt = 0;
+  const rnd = (a) => a[Math.floor(Math.random() * a.length)];
+
+  async function botTalk(T, ph) {
+    if (!T || ph !== "day" || T.now >= T.discEnd || !roomId) return;
+    if ($("gameHostControls")?.hidden !== false) return;          // yalnız host
+    const key = roomId + "-" + T.round;
+    if (botRound !== key) { botRound = key; botNext = Date.now() + 4000; botOpened = false; }
+    if (Date.now() < botNext) return;
+    botNext = Date.now() + 9000 + Math.random() * 11000;
+
+    if (Date.now() - botListAt > 8000) {
+      botListAt = Date.now();
+      const { data } = await db.from("room_bots").select("bot_name,is_alive").eq("room_id", roomId);
+      botList = (data || []).filter((b) => b.is_alive);
+    }
+    if (!botList.length) return;
+    const bot = rnd(botList);
+
+    const names = [...document.querySelectorAll("#gamePlayers .game-player-card:not(.dead) .game-player-name")]
+      .map((e) => e.textContent.trim())
+      .map((n) => (n === "Sən" ? myName : n))
+      .filter((n) => n && n !== bot.bot_name);
+
+    let body;
+    if (!botOpened) { botOpened = true; body = rnd(BOT_OPEN); }
+    else if (names.length && Math.random() < 0.7) body = rnd(BOT_SUSPECT)(rnd(names));
+    else body = rnd(BOT_DEFEND);
+
+    db.from("room_messages").insert({ room_id: roomId, author_name: bot.bot_name + " · BOT", channel: "city", body });
+  }
+
   function say(text, ms = 4200) {
     toast.textContent = text;
     toast.hidden = false;
@@ -55,10 +93,11 @@
     if (m.id) seen.add(m.id);
     const list = $("chatList");
     const el = document.createElement("div");
-    el.className = "chat-msg" + (m.system ? " system" : "") + (m.channel === "mafia" ? " mafia" : "") + (m.user_id === me ? " mine" : "");
+    el.className = "chat-msg" + (m.system ? " system" : "") + (m.channel === "mafia" ? " mafia" : "") + (m.user_id === me && !/ · BOT$/.test(m.author_name || "") ? " mine" : "");
     if (!m.system) {
       const n = document.createElement("b");
       n.textContent = m.author_name;
+      if (/ · BOT$/.test(m.author_name || "")) el.classList.add("bot");
       el.appendChild(n);
     }
     const s = document.createElement("span");
@@ -93,7 +132,6 @@
     const { data: room } = await db.from("rooms").select("id, game_settings").eq("room_code", code).maybeSingle();
     if (!room) return;
     roomId = room.id;
-    discSeconds = Number(room.game_settings?.discussion_seconds) || 120;
 
     const side = document.querySelector(".game-sidebar");
     if (side && !panel.isConnected) side.appendChild(panel);
@@ -116,7 +154,7 @@
   function stop() {
     if (channel) db.removeChannel(channel);
     clearInterval(tickTimer);
-    channel = null; roomId = null; seen = new Set(); lastKey = ""; lastAlive = null;
+    channel = null; roomId = null; seen = new Set(); lastKey = ""; lastAlive = null; botRound = ""; botList = [];
     panel.remove(); curtain.hidden = true;
     const l = $("chatList"); if (l) l.innerHTML = "";
     $("gameScreen")?.classList.remove("is-discussion");
@@ -141,20 +179,22 @@
         addMsg({ system: true, body: "🌙 Gecə düşür. Hamı gözünü yumur." });
       }
       lastAlive = n;
-      if (ph === "day" && !localStorage.getItem("disc-" + roomId + "-" + round())) localStorage.setItem("disc-" + roomId + "-" + round(), Date.now());
     }
     if (lastAlive === null) lastAlive = parseInt($("gameAliveCount")?.textContent) || 0;
 
-    /* faza status + müzakirə taymeri */
-    let left = 0, label = "";
-    if (ph === "day") {
-      const t0 = Number(localStorage.getItem("disc-" + roomId + "-" + round())) || Date.now();
-      left = Math.max(0, discSeconds - Math.floor((Date.now() - t0) / 1000));
-      label = left > 0 ? `MÜZAKİRƏ · ${String(Math.floor(left / 60)).padStart(2, "0")}:${String(left % 60).padStart(2, "0")}` : "SƏSVERMƏ AÇIQDIR";
-    } else label = ph === "night" ? "GECƏ · şəhər yatır" : "OYUN BİTDİ";
+    /* faza status + sayğac: server saatına görə, hamıda eyni (app.js-dən) */
+    const T = window.mafiaGame?.getTiming?.();
+    let label = "", discussion = false;
+    if (ph === "day" && T && T.phase === "day") {
+      if (T.now < T.discEnd) { discussion = true; label = "MÜZAKİRƏ · " + clock(T.discEnd - T.now); }
+      else if (T.now < T.voteEnd) label = "SƏSVERMƏ · " + Math.ceil((T.voteEnd - T.now) / 1000) + " san";
+      else label = "SƏSLƏR HESABLANIR";
+    } else if (ph === "day") label = "GÜNDÜZ";
+    else label = ph === "night" ? "GECƏ · şəhər yatır" : "OYUN BİTDİ";
     $("chatPhase").textContent = label;
     $("chatPhase").className = "chat-phase " + ph;
-    screen.classList.toggle("is-discussion", ph === "day" && left > 0);
+    screen.classList.toggle("is-discussion", discussion);
+    botTalk(T, ph);
 
     /* gecə pərdəsi: xüsusi hərəkəti olmayanlar üçün */
     const acts = ["MAFİYA", "HƏKİM", "DETEKTİV"].includes(role());
