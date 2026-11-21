@@ -43,6 +43,51 @@
   };
   const round = () => parseInt(($("gameRound")?.textContent || "").replace(/\D/g, "")) || 1;
 
+  /* ---------- EMOJİ REAKSİYALARI ---------- */
+  const EMOJIS = ["👍", "😂", "😮", "🤔", "😡"];
+  let reactions = {};            // mesaj id -> [{user_id, emoji}]
+  let rxTimer = null;
+
+  function loadReactionsSoon() { clearTimeout(rxTimer); rxTimer = setTimeout(loadReactions, 250); }
+
+  async function loadReactions() {
+    if (!roomId) return;
+    const { data, error } = await db.from("room_message_reactions").select("message_id,user_id,emoji").eq("room_id", String(roomId));
+    if (error) return;                       // cədvəl yoxdursa (SQL işlənməyib) səssiz keç
+    reactions = {};
+    (data || []).forEach((r) => (reactions[r.message_id] ||= []).push(r));
+    renderReactions();
+  }
+
+  function renderReactions() {
+    document.querySelectorAll("#chatList .chat-msg[data-mid]").forEach((el) => {
+      const box = el.querySelector(".chat-rx");
+      if (!box) return;
+      const list = reactions[el.dataset.mid] || [];
+      const count = {};
+      list.forEach((r) => (count[r.emoji] = (count[r.emoji] || 0) + 1));
+      const mine = list.find((r) => r.user_id === me)?.emoji;
+      box.innerHTML = Object.keys(count).map((e) =>
+        `<button type="button" class="chat-chip${e === mine ? " mine" : ""}" data-emoji="${e}">${e} ${count[e]}</button>`).join("");
+    });
+  }
+
+  async function setReaction(mid, emoji) {
+    const list = reactions[mid] || (reactions[mid] = []);
+    const mineIdx = list.findIndex((r) => r.user_id === me);
+    const same = mineIdx >= 0 && list[mineIdx].emoji === emoji;
+
+    if (mineIdx >= 0) list.splice(mineIdx, 1);          // dərhal göstər (optimistic)
+    if (!same) list.push({ user_id: me, emoji });
+    renderReactions();
+
+    const q = same
+      ? db.from("room_message_reactions").delete().eq("message_id", mid).eq("user_id", me)
+      : db.from("room_message_reactions").upsert({ room_id: String(roomId), message_id: mid, user_id: me, emoji });
+    const { error } = await q;
+    if (error) loadReactions();
+  }
+
   const clock = (ms) => { const x = Math.max(0, Math.ceil(ms / 1000)); return String(Math.floor(x / 60)).padStart(2, "0") + ":" + String(x % 60).padStart(2, "0"); };
 
   /* ---------- BOTLAR DANIŞIR (yalnız host cihazı yazır, təkrar olmasın) ---------- */
@@ -103,6 +148,12 @@
     const s = document.createElement("span");
     s.textContent = m.body;
     el.appendChild(s);
+    if (!m.system && m.id) {
+      el.dataset.mid = String(m.id);
+      const rx = document.createElement("div");
+      rx.className = "chat-rx";
+      el.appendChild(rx);
+    }
     if (m.channel && m.channel !== tab && !m.system) el.hidden = true;
     el.dataset.channel = m.channel || "all";
     list.appendChild(el);
@@ -144,7 +195,10 @@
 
     channel = db.channel("chat-" + roomId).on("postgres_changes",
       { event: "INSERT", schema: "public", table: "room_messages", filter: "room_id=eq." + roomId },
-      (p) => addMsg(p.new)).subscribe();
+      (p) => addMsg(p.new))
+      .on("postgres_changes", { event: "*", schema: "public", table: "room_message_reactions", filter: "room_id=eq." + roomId }, loadReactionsSoon)
+      .subscribe();
+    loadReactions();
 
     await refreshAlive();
     tickTimer = setInterval(tick, 1000);
@@ -154,6 +208,7 @@
   function stop() {
     if (channel) db.removeChannel(channel);
     clearInterval(tickTimer);
+    reactions = {}; clearTimeout(rxTimer);
     channel = null; roomId = null; seen = new Set(); lastKey = ""; lastAlive = null; botRound = ""; botList = [];
     panel.remove(); curtain.hidden = true;
     const l = $("chatList"); if (l) l.innerHTML = "";
@@ -214,6 +269,26 @@
   panel.addEventListener("click", (e) => {
     const b = e.target.closest("[data-tab]");
     if (b) { tab = b.dataset.tab; applyTab(); tick(); }
+  });
+
+  panel.addEventListener("click", (e) => {
+    const chip = e.target.closest(".chat-chip");
+    const pick = e.target.closest(".chat-pick button");
+    const msg = e.target.closest(".chat-msg[data-mid]");
+    if (chip || pick) {
+      const mid = e.target.closest(".chat-msg")?.dataset.mid;
+      if (mid) setReaction(mid, (chip || pick).dataset.emoji);
+      document.querySelectorAll(".chat-pick").forEach((x) => x.remove());
+      return;
+    }
+    const open = msg?.querySelector(".chat-pick");
+    document.querySelectorAll(".chat-pick").forEach((x) => x.remove());
+    if (msg && !open) {                                   // mesaja toxun → emoji paneli
+      const bar = document.createElement("div");
+      bar.className = "chat-pick";
+      bar.innerHTML = EMOJIS.map((x) => `<button type="button" data-emoji="${x}">${x}</button>`).join("");
+      msg.appendChild(bar);
+    }
   });
 
   panel.addEventListener("submit", async (e) => {
