@@ -97,7 +97,7 @@
     doctor: 1,
     detective: 1,
     discussion_seconds: 120,
-    voting_seconds: 30
+    voting_seconds: 20
   };
 
   let currentLanguage = $("languageSelect")?.value || "az";
@@ -131,6 +131,17 @@
   let gameRealtimeChannel = null;
   let gameActionSubmitted = false;
   let renderedGamePhaseKey = null;
+
+  /* VOTING / TIMING STATE */
+  let serverOffsetMs = 0;          // server saatı − brauzer saatı
+  let voteMarks = [];              // bu raundda kim səs verib / keçib
+  let voteMarksWarned = false;
+  let voteTickTimer = null;
+  let voteMarksChannel = null;
+  let lastVoteResolveTry = 0;
+  let isResolvingVote = false;
+  let expAwardedRoom = null;
+  const localPhaseSeen = {};       // phase_started_at yoxdursa ehtiyat
 
   const languageNames = {
     az: "Azərbaycan dili",
@@ -1413,6 +1424,25 @@
      LOAD LOBBY PLAYERS AND BOTS
   ========================================= */
 
+  /* room_players oxu: username sütunu varsa onunla, yoxdursa onsuz (SQL işlədilməyibsə sınmasın) */
+  async function fetchRoomPlayers(columns) {
+    let result = await mafiaDB
+      .from("room_players")
+      .select(columns + ", username")
+      .eq("room_id", activeRoomId)
+      .order("seat_number", { ascending: true });
+
+    if (result.error) {
+      result = await mafiaDB
+        .from("room_players")
+        .select(columns)
+        .eq("room_id", activeRoomId)
+        .order("seat_number", { ascending: true });
+    }
+
+    return result;
+  }
+
   async function refreshLobbyPlayers() {
     if (!activeRoomId || !lobbyPlayers) {
       renderEmptyLobby();
@@ -1420,11 +1450,7 @@
     }
 
     const [playersResult, botsResult] = await Promise.all([
-      mafiaDB
-        .from("room_players")
-        .select("id, room_id, user_id, seat_number, is_alive, is_ready")
-        .eq("room_id", activeRoomId)
-        .order("seat_number", { ascending: true }),
+      fetchRoomPlayers("id, room_id, user_id, seat_number, is_alive, is_ready"),
 
       mafiaDB
         .from("room_bots")
@@ -1515,7 +1541,7 @@
 
       const playerName = isMe
         ? getUserName(currentUser)
-        : `Oyunçu ${player.seat_number || index + 1}`;
+        : (player.username || `Oyunçu ${player.seat_number || index + 1}`);
 
       const avatarLetter = playerName.charAt(0).toUpperCase();
 
@@ -1885,6 +1911,33 @@
      GAME — SCREEN CONTROL
   ========================================= */
 
+  /* Server saatı ilə brauzer saatı arasındakı fərq (hamıda eyni sayğac üçün) */
+  async function syncServerClock() {
+    try {
+      const t0 = Date.now();
+      const { data, error } = await mafiaDB.rpc("server_now");
+      const t1 = Date.now();
+      if (error || !data) throw error || new Error("server_now boşdur");
+      serverOffsetMs = new Date(data).getTime() - (t0 + t1) / 2;
+    } catch (error) {
+      console.warn("Server saatı alınmadı (mafia-update.sql işlədilib?):", error);
+      serverOffsetMs = 0;
+    }
+  }
+
+  const serverNow = () => Date.now() + serverOffsetMs;
+
+  /* Oyun başlayanda ayarları DB-dən təzələ ki, hamıda eyni olsun */
+  async function refreshRoomSettings() {
+    if (!activeRoomId || !activeRoom) return;
+    const { data } = await mafiaDB
+      .from("rooms")
+      .select("game_settings")
+      .eq("id", activeRoomId)
+      .maybeSingle();
+    if (data?.game_settings) activeRoom.game_settings = data.game_settings;
+  }
+
   function gameMessage(message) {
     setText("gameActionMessage", message);
   }
@@ -1907,8 +1960,11 @@
 
     try {
       await getCurrentUser();
+      await syncServerClock();
+      await refreshRoomSettings();
       myGameRole = await fetchMyRoleWithRetry();
       renderedGamePhaseKey = null;
+      expAwardedRoom = null;
       showGameScreen();
     } catch (error) {
       console.error("Oyun ekranına keçid xətası:", error);
@@ -1964,12 +2020,18 @@
       gameRealtimeChannel = null;
     }
 
+    stopVoteTick();
+
     gameState = null;
     myGameRole = null;
     selectedGameTarget = null;
     gameParticipants = [];
     renderedGamePhaseKey = null;
     gameActionSubmitted = false;
+    voteMarks = [];
+    gameScreen?.classList.remove("is-vote-closed");
+    $("voteBoard")?.remove();
+    $("voteTimer")?.remove();
   }
 
   /* =========================================
@@ -2001,11 +2063,7 @@
     if (!activeRoomId) return;
 
     const [playersResult, botsResult] = await Promise.all([
-      mafiaDB
-        .from("room_players")
-        .select("id,user_id,seat_number,is_alive")
-        .eq("room_id", activeRoomId)
-        .order("seat_number"),
+      fetchRoomPlayers("id,user_id,seat_number,is_alive"),
 
       mafiaDB
         .from("room_bots")
@@ -2027,7 +2085,7 @@
       targetType: "user",
       name: player.user_id === currentUser?.id
         ? "Sən"
-        : "Oyunçu " + player.seat_number,
+        : (player.username || "Oyunçu " + player.seat_number),
       seat: player.seat_number,
       alive: player.is_alive
     }));
@@ -2042,6 +2100,18 @@
 
     gameParticipants = [...humans, ...bots]
       .sort((a, b) => a.seat - b.seat);
+
+    // Eyni ad iki dəfə varsa, yer nömrəsi əlavə et (masada qarışmasın)
+    const nameCount = {};
+    gameParticipants.forEach((p) => {
+      const k = String(p.name).toLowerCase();
+      nameCount[k] = (nameCount[k] || 0) + 1;
+    });
+    gameParticipants.forEach((p) => {
+      if (p.name !== "Sən" && nameCount[String(p.name).toLowerCase()] > 1) {
+        p.name = `${p.name} #${p.seat}`;
+      }
+    });
 
     renderGameParticipants();
   }
@@ -2159,15 +2229,13 @@
     if (hostControls) hostControls.hidden = !isRoomHost;
 
     const finishNightBtn = $("finishNightBtn");
-    const finishVotingBtn = $("finishVotingBtn");
 
     if (finishNightBtn) {
       finishNightBtn.hidden = !isRoomHost || phase !== "night";
     }
 
-    if (finishVotingBtn) {
-      finishVotingBtn.hidden = !isRoomHost || phase !== "day";
-    }
+    // Səsvermənin bitməsi artıq düymə ilə yox, 20 saniyəlik sayğacla avtomatikdir
+    startVoteTick();
   }
 
   function renderTargetButtons() {
@@ -2176,6 +2244,12 @@
     gameTargetList.innerHTML = "";
     selectedGameTarget = null;
     gameActionSubmitted = false;
+
+    const me = gameParticipants.find((p) => p.targetType === "user" && p.id === currentUser?.id);
+    if (me && !me.alive) {
+      gameMessage("Sən oyundan çıxmısan — izləyicisən.");
+      return;
+    }
 
     const aliveTargets = gameParticipants.filter((player) =>
       player.alive &&
@@ -2195,7 +2269,7 @@
         selectedGameTarget = player;
 
         gameTargetList
-          .querySelectorAll(".game-target-btn")
+          .querySelectorAll(".game-target-btn, .game-skip-btn")
           .forEach((item) => item.classList.remove("selected"));
 
         button.classList.add("selected");
@@ -2250,11 +2324,283 @@
     gameMessage("");
 
     renderTargetButtons();
+    addSkipButton();
+    ensureVoteBoard();
+    loadVoteMarks();
 
     if (gameActionBtn) {
       gameActionBtn.disabled = true;
       gameActionBtn.textContent = "SƏSİ GÖNDƏR";
     }
+  }
+
+  /* "Şübhəli yoxdur — keç" seçimi */
+  function addSkipButton() {
+    if (!gameTargetList || gameTargetList.querySelector(".game-skip-btn")) return;
+
+    const me = gameParticipants.find((p) => p.targetType === "user" && p.id === currentUser?.id);
+    if (me && !me.alive) return;
+
+    const skip = document.createElement("button");
+    skip.type = "button";
+    skip.className = "game-skip-btn";
+    skip.textContent = "ŞÜBHƏLİ YOXDUR — KEÇ";
+
+    skip.addEventListener("click", () => {
+      if (gameActionSubmitted) return;
+
+      selectedGameTarget = { skip: true };
+
+      gameTargetList
+        .querySelectorAll(".game-target-btn, .game-skip-btn")
+        .forEach((item) => item.classList.remove("selected"));
+      skip.classList.add("selected");
+
+      const preview = $("fxPreview");
+      if (preview) preview.hidden = true;
+
+      if (gameActionBtn) gameActionBtn.disabled = false;
+    });
+
+    gameTargetList.appendChild(skip);
+  }
+
+  /* =========================================
+     VOTING — SHARED TIMER, BOARD, AUTO FINISH
+  ========================================= */
+
+  // Faza vaxtları: hamısı serverin phase_started_at saatından hesablanır → hamıda eyni
+  function getTiming() {
+    if (!gameState) return null;
+
+    const settings = getGameSettings();
+    const key = `${gameState.phase}-${gameState.round_number || 1}`;
+
+    let start = gameState.phase_started_at
+      ? new Date(gameState.phase_started_at).getTime()
+      : NaN;
+
+    if (!Number.isFinite(start)) {
+      // SQL işlədilməyibsə ehtiyat: ilk görünən vaxt (hər cihazda fərqli ola bilər)
+      if (!localPhaseSeen[key]) localPhaseSeen[key] = serverNow();
+      start = localPhaseSeen[key];
+    }
+
+    const discEnd = start + settings.discussion_seconds * 1000;
+    const voteEnd = discEnd + settings.voting_seconds * 1000;
+
+    return {
+      phase: gameState.phase,
+      round: gameState.round_number || 1,
+      key,
+      start,
+      discEnd,
+      voteEnd,
+      now: serverNow()
+    };
+  }
+
+  // game-chat.js eyni vaxtı buradan oxuyur
+  window.mafiaGame = { getTiming };
+
+  function formatClock(ms) {
+    const s = Math.max(0, Math.ceil(ms / 1000));
+    return String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
+  }
+
+  function ensureVoteTimer() {
+    let el = $("voteTimer");
+    if (el) return el;
+
+    el = document.createElement("div");
+    el.id = "voteTimer";
+    el.className = "vote-timer";
+    el.innerHTML = "<span></span><div><i></i></div>";
+
+    const title = $("gameActionTitle");
+    title?.insertAdjacentElement("afterend", el);
+    return el;
+  }
+
+  function ensureVoteBoard() {
+    let el = $("voteBoard");
+    if (el) return el;
+
+    el = document.createElement("div");
+    el.id = "voteBoard";
+    el.className = "vote-board";
+    $("gameActionMessage")?.insertAdjacentElement("afterend", el);
+    return el;
+  }
+
+  async function loadVoteMarks() {
+    if (!activeRoomId || !gameState || gameState.phase !== "day") return;
+
+    const { data, error } = await mafiaDB
+      .from("room_vote_marks")
+      .select("voter_id,target_key,skipped")
+      .eq("room_id", String(activeRoomId))
+      .eq("round_number", gameState.round_number || 1);
+
+    if (error) {
+      if (!voteMarksWarned) {
+        voteMarksWarned = true;
+        console.warn("room_vote_marks oxunmadı (mafia-update.sql işlədilib?):", error.message);
+      }
+      return;
+    }
+
+    voteMarks = data || [];
+
+    // Səhifə yenilənibsə: artıq səs vermişəmsə, yenidən verməyə qoyma
+    const mine = voteMarks.find((m) => m.voter_id === currentUser?.id);
+    if (mine && !gameActionSubmitted) {
+      gameActionSubmitted = true;
+      if (gameActionBtn) {
+        gameActionBtn.disabled = true;
+        gameActionBtn.textContent = mine.skipped ? "KEÇDİN" : "GÖNDƏRİLDİ";
+      }
+    }
+
+    renderVoteBoard();
+  }
+
+  async function saveVoteMark(target, skipped) {
+    const { error } = await mafiaDB.from("room_vote_marks").upsert({
+      room_id: String(activeRoomId),
+      round_number: gameState?.round_number || 1,
+      voter_id: currentUser.id,
+      target_key: skipped ? null : `${target.targetType}:${target.id}`,
+      skipped: !!skipped
+    });
+
+    if (error) console.warn("Səs qeydi yazılmadı:", error.message);
+    else loadVoteMarks();
+  }
+
+  function renderVoteBoard() {
+    const board = $("voteBoard");
+    if (!board || !gameState || gameState.phase !== "day") return;
+
+    const t = getTiming();
+    const voters = gameParticipants.filter((p) => p.targetType === "user" && p.alive);
+    const markOf = (p) => voteMarks.find((m) => m.voter_id === p.id);
+    const done = voters.filter((p) => markOf(p)).length;
+    const revealed = t && t.now >= t.voteEnd;      // gizli səsvermə: nəticə vaxt bitəndə açılır
+
+    const nameOfKey = (key) => {
+      const found = gameParticipants.find((p) => `${p.targetType}:${p.id}` === key);
+      return found ? found.name : "?";
+    };
+
+    const rows = voters.map((p) => {
+      const m = markOf(p);
+      let status;
+
+      if (!m) status = revealed ? "səs vermədi" : "gözləyir…";
+      else if (m.skipped) status = "keçdi";
+      else status = revealed ? "→ " + nameOfKey(m.target_key) : "səs verdi ✓";
+
+      return `<li class="${m ? "done" : "wait"}">
+        <b>${escapeHTML(p.name)}</b><span>${escapeHTML(status)}</span></li>`;
+    }).join("");
+
+    board.innerHTML = `
+      <div class="vote-board-head">
+        <span>${revealed ? "SƏSVERMƏ NƏTİCƏSİ" : "SƏS VERƏNLƏR"}</span>
+        <strong>${done}/${voters.length}</strong>
+      </div>
+      <ul>${rows}</ul>
+      <small>Botlar səsvermə bitəndə avtomatik səs verir.</small>`;
+  }
+
+  function startVoteTick() {
+    if (voteTickTimer) return;
+    voteTickTimer = setInterval(voteTick, 250);
+
+    if (!voteMarksChannel && activeRoomId) {
+      voteMarksChannel = mafiaDB
+        .channel("vote-marks-" + activeRoomId)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "room_vote_marks",
+            filter: "room_id=eq." + activeRoomId
+          },
+          () => loadVoteMarks()
+        )
+        .subscribe();
+    }
+  }
+
+  function stopVoteTick() {
+    if (voteTickTimer) clearInterval(voteTickTimer);
+    voteTickTimer = null;
+
+    if (voteMarksChannel) {
+      mafiaDB.removeChannel(voteMarksChannel);
+      voteMarksChannel = null;
+    }
+  }
+
+  function voteTick() {
+    if (!gameState || !gameScreen || gameScreen.hidden) return;
+
+    const timer = $("voteTimer");
+
+    if (gameState.phase !== "day") {
+      timer?.remove();
+      $("voteBoard")?.remove();
+      gameScreen.classList.remove("is-vote-closed");
+      return;
+    }
+
+    const t = getTiming();
+    if (!t) return;
+
+    const el = ensureVoteTimer();
+    const label = el.querySelector("span");
+    const bar = el.querySelector("i");
+    const settings = getGameSettings();
+
+    if (t.now < t.discEnd) {
+      // müzakirə: səs vermək hələ bağlıdır
+      label.textContent = "MÜZAKİRƏ · " + formatClock(t.discEnd - t.now);
+      bar.style.width = ((t.discEnd - t.now) / (settings.discussion_seconds * 1000)) * 100 + "%";
+      el.className = "vote-timer discussion";
+      gameScreen.classList.remove("is-vote-closed");
+    } else if (t.now < t.voteEnd) {
+      const left = t.voteEnd - t.now;
+      label.textContent = "SƏSVERMƏ · " + Math.ceil(left / 1000) + " san";
+      bar.style.width = (left / (settings.voting_seconds * 1000)) * 100 + "%";
+      el.className = "vote-timer voting" + (left <= 5000 ? " urgent" : "");
+      gameScreen.classList.remove("is-vote-closed");
+    } else {
+      label.textContent = "SƏSLƏR HESABLANIR…";
+      bar.style.width = "0%";
+      el.className = "vote-timer closed";
+      gameScreen.classList.add("is-vote-closed");
+
+      if (!gameActionSubmitted && gameActionBtn) {
+        gameActionBtn.disabled = true;
+        gameMessage("Vaxt bitdi.");
+      }
+
+      // Yalnız host cihazı səsverməni bağlayır (səs mexanikası host tərəfindən idarə olunur)
+      if (
+        isRoomHost &&
+        !isResolvingVote &&
+        t.now >= t.voteEnd + 1500 &&
+        Date.now() - lastVoteResolveTry > 5000
+      ) {
+        lastVoteResolveTry = Date.now();
+        finishGameVoting();
+      }
+    }
+
+    renderVoteBoard();
   }
 
   async function renderGameFinished() {
@@ -2269,10 +2615,11 @@
     }
 
     const finishNightBtn = $("finishNightBtn");
-    const finishVotingBtn = $("finishVotingBtn");
-
     if (finishNightBtn) finishNightBtn.hidden = true;
-    if (finishVotingBtn) finishVotingBtn.hidden = true;
+
+    stopVoteTick();
+    gameScreen?.classList.remove("is-vote-closed");
+    $("voteTimer")?.remove();
 
     const winner = gameState?.winner;
 
@@ -2289,6 +2636,35 @@
     );
 
     setText("gameAnnouncementText", "Bu oyun başa çatdı.");
+
+    awardExp();
+  }
+
+  /* =========================================
+     EXP / LEVEL
+  ========================================= */
+
+  async function awardExp() {
+    if (!activeRoomId || expAwardedRoom === activeRoomId) return;
+    expAwardedRoom = activeRoomId;
+
+    try {
+      const { data, error } = await mafiaDB.rpc("award_game_exp", {
+        p_room_id: String(activeRoomId)
+      });
+
+      if (error) throw error;
+      if (!data) return;
+
+      const text = data.already
+        ? "Bu oyunun EXP-si artıq hesabına yazılıb."
+        : `+${data.exp_gained} EXP qazandın · Səviyyə ${data.level}`;
+
+      setText("gameAnnouncementText", text);
+    } catch (error) {
+      expAwardedRoom = null;
+      console.warn("EXP verilmədi (mafia-update.sql işlədilib?):", error);
+    }
   }
 
   /* =========================================
@@ -2302,6 +2678,26 @@
 
     const target = selectedGameTarget;
     const isNight = gameState.phase === "night";
+
+    // Səsvermə yalnız müzakirədən sonra, vaxt bitməmiş açıqdır
+    if (!isNight) {
+      const t = getTiming();
+      if (t && (t.now < t.discEnd || t.now >= t.voteEnd)) {
+        gameMessage(t.now < t.discEnd ? "Səsvermə hələ başlamayıb." : "Vaxt bitdi.");
+        return;
+      }
+
+      if (target.skip) {
+        gameActionSubmitted = true;
+        if (gameActionBtn) {
+          gameActionBtn.disabled = true;
+          gameActionBtn.textContent = "KEÇDİN";
+        }
+        gameMessage("Kimsəyə səs vermədin (keçdin).");
+        await saveVoteMark(null, true);
+        return;
+      }
+    }
 
     if (gameActionBtn) gameActionBtn.disabled = true;
     gameMessage("Hərəkət göndərilir...");
@@ -2358,6 +2754,8 @@
 
     if (gameActionBtn) gameActionBtn.textContent = "GÖNDƏRİLDİ";
     gameMessage("Seçimin qəbul edildi.");
+
+    if (!isNight) saveVoteMark(target, false);
   }
 
   async function finishGameNight() {
@@ -2395,13 +2793,9 @@
   }
 
   async function finishGameVoting() {
-    if (!isRoomHost || !activeRoomId) return;
+    if (!isRoomHost || !activeRoomId || isResolvingVote) return;
 
-    const button = $("finishVotingBtn");
-    if (!button) return;
-
-    button.disabled = true;
-    button.textContent = "SƏSLƏR HESABLANIR...";
+    isResolvingVote = true;
 
     try {
       const botVotes = await mafiaDB.rpc(
@@ -2423,8 +2817,7 @@
       console.error("Voting resolution error:", error);
       gameMessage(error.message || "Səsverməni tamamlamaq mümkün olmadı.");
     } finally {
-      button.disabled = false;
-      button.textContent = "SƏSVERMƏNİ TAMAMLA";
+      isResolvingVote = false;
     }
   }
 
@@ -2445,6 +2838,7 @@
     }
 
     await loadGameState();
+    await loadVoteMarks();
   }
 
   function startGameRefresh() {
@@ -2616,7 +3010,6 @@
 
   gameActionBtn?.addEventListener("click", submitGameAction);
   $("finishNightBtn")?.addEventListener("click", finishGameNight);
-  $("finishVotingBtn")?.addEventListener("click", finishGameVoting);
 
   // leaveRoom özü təsdiq soruşur, ikinci confirm lazım deyil
   $("gameLeaveBtn")?.addEventListener("click", leaveRoom);
