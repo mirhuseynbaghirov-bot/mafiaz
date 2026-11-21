@@ -44,3 +44,5 @@
 /* host düymələri və çıxış həmişə pərdənin üstündə qalır */
 .game-host-controls,#gameLeaveBtn{position:relative;z-index:30}
 .game-host-controls{background:#0d0c11!important;border-color:var(--gold)!important}
+
+#curtainFinish{pointer-events:auto;margin-top:26px;padding:14px 28px;border:1px solid var(--neon);background:rgba(255,59,82,.15);color:#fff;font:700 14px var(--hud);letter-spacing:3px;border-radius:0}
