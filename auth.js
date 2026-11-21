@@ -17,9 +17,6 @@
 
   let profileButton = null;
 
-  // Google ilə girişdən sonra istifadəçi adı seçilməyibsə true olur
-  let usernameRequired = false;
-
   /* =========================================
      STYLES (Google düyməsi, "və ya" xətti)
   ========================================= */
@@ -110,9 +107,43 @@
         color: #e27b88;
       }
 
-      /* İstifadəçi adı seçilənə qədər modalı bağlamaq olmaz */
-      #modal.auth-locked #modalClose {
-        display: none;
+      /* Ad seçimi: öz ayrıca pəncərəsi (digər skriptlərin modalından asılı deyil) */
+      .username-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 2147483000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        background: rgba(0,0,0,.88);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+      }
+
+      .username-box {
+        width: 100%;
+        max-width: 420px;
+        max-height: 90vh;
+        overflow-y: auto;
+        padding: 40px 30px;
+        background: linear-gradient(145deg, #211e24, #131218);
+        border: 1px solid rgba(198,161,91,.28);
+        border-radius: 6px;
+        text-align: center;
+        box-shadow: 0 25px 80px rgba(0,0,0,.6);
+      }
+
+      .username-icon {
+        color: #c6a15b;
+        font-size: 43px;
+      }
+
+      .username-box h2 {
+        margin: 18px 0 16px;
+        color: #eee9e1;
+        font-family: 'Cinzel', serif;
+        font-size: 23px;
       }
     `;
 
@@ -137,27 +168,8 @@
   }
 
   function closeAuthModal() {
-    if (usernameRequired) return;
     authModal.classList.remove("active");
   }
-
-  /* İstifadəçi adı seçilənə qədər app.js-in bağlama dinləyiciləri işləməsin
-     (capture fazasında dayandırırıq) */
-  authModal.addEventListener(
-    "click",
-    (event) => {
-      if (!usernameRequired) return;
-
-      const clickedBackdrop = event.target === authModal;
-      const clickedClose = event.target.closest?.("#modalClose");
-
-      if (clickedBackdrop || clickedClose) {
-        event.stopImmediatePropagation();
-        event.preventDefault();
-      }
-    },
-    true
-  );
 
   /* =========================================
      USERNAME HELPERS
@@ -255,15 +267,22 @@
     return !getChosenUsername(user);
   }
 
+  function closeUsernamePrompt() {
+    document.getElementById("mafiaUsernameOverlay")?.remove();
+  }
+
   function openUsernamePrompt() {
-    if (usernameRequired) return; // artıq açıqdır
+    if (document.getElementById("mafiaUsernameOverlay")) return; // artıq açıqdır
 
-    usernameRequired = true;
-    authModal.classList.add("auth-locked");
+    const overlay = document.createElement("div");
+    overlay.id = "mafiaUsernameOverlay";
+    overlay.className = "username-overlay";
 
-    openAuthModal(
-      "ADINI SEÇ",
-      `
+    overlay.innerHTML = `
+      <div class="username-box" role="dialog" aria-modal="true">
+        <span class="username-icon">♛</span>
+        <h2>ADINI SEÇ</h2>
+
         <form id="mafiaUsernameForm" class="room-form">
           <p class="auth-hint">
             Hesabın təsdiqləndi ✓<br>
@@ -286,8 +305,10 @@
             Hesabdan çıx
           </button>
         </form>
-      `
-    );
+      </div>
+    `;
+
+    document.body.appendChild(overlay);
 
     const input = document.getElementById("mafiaChosenUsername");
     input?.focus();
@@ -319,11 +340,8 @@
 
           if (error) throw error;
 
-          usernameRequired = false;
-          authModal.classList.remove("auth-locked");
-
           updateNavbar(data.user);
-          closeAuthModal();
+          closeUsernamePrompt();
         } catch (error) {
           console.error("Ad yadda saxlanmadı:", error);
           message.textContent =
@@ -337,6 +355,7 @@
       .getElementById("mafiaUsernameLogout")
       .addEventListener("click", async () => {
         await mafiaSupabase.auth.signOut();
+        closeUsernamePrompt();
       });
   }
 
@@ -630,12 +649,8 @@
   mafiaSupabase.auth.onAuthStateChange((event, session) => {
     const user = session?.user || null;
 
-    // Çıxış edilibsə, ad seçimi kilidini aç
-    if (!user && usernameRequired) {
-      usernameRequired = false;
-      authModal.classList.remove("auth-locked");
-      authModal.classList.remove("active");
-    }
+    // Çıxış edilibsə, ad seçimi pəncərəsini bağla
+    if (!user) closeUsernamePrompt();
 
     updateNavbar(user);
     checkUsernameRequirement(user);
