@@ -1,0 +1,73 @@
+/* game-extra.css — game-table.css-dən SONRA yüklə
+   Səsvermə sayğacı, səs lövhəsi, "keç" düyməsi, profil/EXP */
+
+/* ---------- səsvermə sayğacı ---------- */
+.vote-timer{margin:10px 0 12px;padding:9px 12px;background:#0b0b10;border:1px solid rgba(255,255,255,.1)}
+.vote-timer span{display:block;text-align:center;font:700 14px var(--hud);letter-spacing:3px;color:#ffc46e}
+.vote-timer div{height:4px;margin-top:8px;background:rgba(255,255,255,.08)}
+.vote-timer i{display:block;height:100%;width:100%;background:var(--gold);transition:width .25s linear}
+.vote-timer.discussion span{color:#9db4ff}
+.vote-timer.discussion i{background:#6c7aa8}
+.vote-timer.voting{border-color:var(--gold)}
+.vote-timer.urgent{border-color:var(--neon);animation:voteUrgent .8s infinite}
+.vote-timer.urgent span{color:var(--neon)}
+.vote-timer.urgent i{background:var(--neon)}
+.vote-timer.closed span{color:#8b8590}
+@keyframes voteUrgent{50%{box-shadow:0 0 18px rgba(255,59,82,.45)}}
+
+/* vaxt bitəndə də səsvermə kilidlənir */
+.game-screen.is-vote-closed .game-target-list,
+.game-screen.is-vote-closed #gameActionBtn{pointer-events:none;opacity:.35;filter:grayscale(.6)}
+
+/* ---------- "şübhəli yoxdur — keç" ---------- */
+.game-skip-btn{width:100%;margin-top:6px;padding:12px;border:1px dashed rgba(255,255,255,.25);background:transparent;
+  color:#b9b3bb;font:600 12px var(--hud);letter-spacing:2px;border-radius:0;cursor:pointer}
+.game-skip-btn.selected{border-style:solid;border-color:var(--gold);color:#fff;background:rgba(198,161,91,.14)}
+
+/* ---------- səs lövhəsi ---------- */
+.vote-board{margin-top:14px;padding:12px;background:#0b0b10;border:1px solid rgba(255,255,255,.08)}
+.vote-board-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;
+  font:600 11px var(--hud);letter-spacing:2px;color:var(--gold)}
+.vote-board-head strong{color:#fff;font-size:14px}
+.vote-board ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:5px}
+.vote-board li{display:flex;justify-content:space-between;gap:10px;padding:6px 9px;background:#14131a;
+  border-left:3px solid #4a444d;font-size:13px}
+.vote-board li.done{border-left-color:#3dd68c}
+.vote-board li.wait{border-left-color:#ffb347}
+.vote-board li b{font-weight:600;color:#eee}
+.vote-board li span{color:#99939b;text-align:right}
+.vote-board small{display:block;margin-top:8px;font:11px var(--type);color:#6f6a73}
+
+/* ---------- bot mesajı ---------- */
+.chat-msg.bot{border-left-color:#6c7aa8}
+.chat-msg.bot b{color:#9db4ff}
+
+/* ---------- profil: səviyyə, EXP, statistika ---------- */
+.pf-stats{margin-top:14px;text-align:left}
+.pf-joined{font-size:12px;color:#7d7782;margin-top:-6px}
+.pf-level{display:flex;align-items:center;gap:14px;padding:12px;background:#0b0b10;border:1px solid var(--gold-border,rgba(198,161,91,.35))}
+.pf-badge{flex:none;width:62px;height:62px;display:grid;place-content:center;text-align:center;
+  border:2px solid var(--gold);background:rgba(198,161,91,.12)}
+.pf-badge small{font:600 10px var(--hud);letter-spacing:2px;color:#b9a06a}
+.pf-badge b{font:700 26px var(--hud);color:#fff;line-height:1}
+.pf-rank{flex:1;min-width:0}
+.pf-rank strong{display:block;font:700 14px var(--hud);letter-spacing:3px;color:var(--gold)}
+.pf-bar{height:7px;margin:7px 0 5px;background:rgba(255,255,255,.08)}
+.pf-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--gold),#f0d089);transition:width .6s}
+.pf-rank span{font:11px var(--type);color:#8b8590}
+.pf-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:10px}
+.pf-cell{padding:10px 4px;text-align:center;background:#14131a;border:1px solid rgba(255,255,255,.06)}
+.pf-cell b{display:block;font:700 18px var(--hud);color:#fff}
+.pf-cell span{font:600 9px var(--hud);letter-spacing:1.5px;color:#8b8590}
+.pf-recent{margin-top:12px}
+.pf-title{display:block;margin-bottom:6px;font:600 11px var(--hud);letter-spacing:3px;color:var(--gold)}
+.pf-recent ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:5px}
+.pf-recent li{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;padding:7px 10px;
+  background:#14131a;border-left:3px solid #4a444d;font-size:12px}
+.pf-recent li.win{border-left-color:#3dd68c}
+.pf-recent li.loss{border-left-color:var(--neon)}
+.pf-recent li span{font:600 11px var(--hud);letter-spacing:1.5px}
+.pf-recent li em{font-style:normal;color:#99939b}
+.pf-recent li strong{color:var(--gold);font-weight:600}
+.pf-recent li.empty{display:block;text-align:center;color:#7d7782}
+.pf-note{margin-top:10px;font-size:12px;color:#8b8590;text-align:center}
