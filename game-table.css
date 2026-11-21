@@ -1,0 +1,64 @@
+/* game-table.css — game-fx.css-dən SONRA yüklə */
+
+/* [hidden] həmişə gizlətsin (display:grid/flex onu ləğv etməsin) */
+[hidden]{display:none!important}
+
+/* ================= FADE / QARALMA ================= */
+/* faza başlığı: kino zolaqlarına əlavə olaraq TAM EKRAN qaralma */
+.fx-title::before{content:"";position:absolute;inset:0;background:#000;animation:fxDim 2.6s both}
+.fx-title.red::before{background:#120003}
+@keyframes fxDim{0%{opacity:0}14%,84%{opacity:.8}100%{opacity:0}}
+.fx-title div{position:relative;max-width:94vw}
+.fx-title h1{overflow-wrap:anywhere}
+/* başlıq gedərkən səhər elanı (toast) üst-üstə düşməsin */
+body.fx-titling .game-toast{visibility:hidden}
+
+/* gecə pərdəsi: tam ekran, tam qara, body-dən asılıdır */
+.night-curtain{position:fixed!important;inset:0;width:100vw;height:100vh;height:100dvh;z-index:90;
+  background:radial-gradient(circle at 50% 45%,#070a1a 0,#000 85%)!important;
+  animation:curtainIn .9s both}
+@keyframes curtainIn{from{opacity:0}to{opacity:1}}
+
+/* ================= 3D MASA ================= */
+#gamePlayers.fx-table{display:block!important;position:relative;isolation:isolate;
+  height:min(125vw,540px);min-height:400px;margin-top:6px;overflow:visible}
+
+/* masa: taxta kənar + qalınlıq + kölgə */
+.fx-table::before{content:"";position:absolute;z-index:5;left:15%;right:15%;top:30%;bottom:25%;border-radius:50%;
+  background:radial-gradient(ellipse at 50% 40%,#2f6444 0,#1d4230 55%,#12281b 100%);
+  border:10px solid #5a3a22;
+  box-shadow:0 18px 0 #2e1c10,0 34px 40px rgba(0,0,0,.7),inset 0 0 40px rgba(0,0,0,.6);
+  transition:filter .8s}
+/* masanın üstündəki lampa işığı */
+.fx-table::after{content:"";position:absolute;z-index:6;left:32%;right:32%;top:38%;bottom:33%;border-radius:50%;
+  background:radial-gradient(ellipse,rgba(255,214,140,.38),transparent 70%);pointer-events:none}
+.game-screen.is-night .fx-table::before{filter:brightness(.55) saturate(.8)}
+.game-screen.is-night .fx-table::after{opacity:.55}
+.game-screen.is-finished .fx-table::before{filter:brightness(.5) hue-rotate(-60deg)}
+
+/* oyunçu kartı = masa arxasında oturan avatar */
+.fx-table .game-player-card{position:absolute;translate:-50% -50%;width:76px;padding:0!important;margin:0;
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+  background:none!important;border:0!important;box-shadow:none!important;clip-path:none!important;overflow:visible!important}
+.fx-table .game-player-avatar{width:56px!important;height:56px!important;border-radius:50%;
+  border:2px solid #5a4a2c;box-shadow:0 8px 14px rgba(0,0,0,.6);overflow:hidden}
+.fx-table .game-player-name{max-width:76px;padding:1px 7px;font-size:10px;letter-spacing:.5px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:rgba(0,0,0,.65);border-radius:8px}
+.fx-table .game-player-status{display:none}
+.fx-table .game-player-card::before{top:2px;right:8px;width:7px;height:7px}
+
+/* ölən oyunçu */
+.fx-table .game-player-card.dead{opacity:.6}
+.fx-table .game-player-card.dead::after{font-size:9px;padding:1px 4px;top:38%;border-width:1.5px}
+
+/* hədəfə alınan */
+.fx-table .game-player-card.is-aimed{box-shadow:none!important}
+.fx-table .game-player-card.is-aimed .game-player-avatar{border-color:var(--aim);
+  box-shadow:0 0 0 3px var(--aim),0 0 26px var(--aim)}
+
+@media(min-width:851px){
+  #gamePlayers.fx-table{height:540px}
+  .fx-table .game-player-card{width:92px}
+  .fx-table .game-player-avatar{width:68px!important;height:68px!important}
+  .fx-table .game-player-name{font-size:12px;max-width:92px}
+}
