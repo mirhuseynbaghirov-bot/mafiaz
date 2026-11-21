@@ -17,6 +17,114 @@
 
   let profileButton = null;
 
+  // Google ilə girişdən sonra istifadəçi adı seçilməyibsə true olur
+  let usernameRequired = false;
+
+  /* =========================================
+     STYLES (Google düyməsi, "və ya" xətti)
+  ========================================= */
+
+  function addAuthStyles() {
+    if (document.getElementById("mafiaAuthStyles")) return;
+
+    const style = document.createElement("style");
+    style.id = "mafiaAuthStyles";
+
+    style.textContent = `
+      .google-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        width: 100%;
+        min-height: 48px;
+        padding: 0 18px;
+        border: 1px solid #dadce0;
+        border-radius: 4px;
+        background: #ffffff;
+        color: #3c4043;
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: .3px;
+        cursor: pointer;
+        transition: .2s ease;
+      }
+
+      .google-btn:hover:not(:disabled) {
+        background: #f6f7f8;
+        box-shadow: 0 4px 18px rgba(255,255,255,.12);
+        transform: translateY(-2px);
+      }
+
+      .google-btn:disabled {
+        opacity: .6;
+        cursor: not-allowed;
+      }
+
+      .google-btn svg {
+        width: 20px;
+        height: 20px;
+        flex-shrink: 0;
+      }
+
+      .auth-divider {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin: 18px 0;
+        color: #77717a;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+      }
+
+      .auth-divider::before,
+      .auth-divider::after {
+        content: "";
+        flex: 1;
+        height: 1px;
+        background: rgba(255,255,255,.12);
+      }
+
+      .auth-hint {
+        margin: 0 0 6px;
+        color: #aaa2a4;
+        font-size: 12px;
+        line-height: 1.7;
+        text-align: center;
+      }
+
+      .auth-link-btn {
+        margin-top: 4px;
+        padding: 8px;
+        background: transparent;
+        border: none;
+        color: #99939b;
+        font-size: 11px;
+        text-decoration: underline;
+        cursor: pointer;
+      }
+
+      .auth-link-btn:hover {
+        color: #e27b88;
+      }
+
+      /* İstifadəçi adı seçilənə qədər modalı bağlamaq olmaz */
+      #modal.auth-locked #modalClose {
+        display: none;
+      }
+    `;
+
+    document.head.appendChild(style);
+  }
+
+  addAuthStyles();
+
+  /* =========================================
+     MODAL
+  ========================================= */
+
   function openAuthModal(title, content) {
     authTitle.textContent = title;
     authDescription.replaceChildren();
@@ -29,8 +137,219 @@
   }
 
   function closeAuthModal() {
+    if (usernameRequired) return;
     authModal.classList.remove("active");
   }
+
+  /* İstifadəçi adı seçilənə qədər app.js-in bağlama dinləyiciləri işləməsin
+     (capture fazasında dayandırırıq) */
+  authModal.addEventListener(
+    "click",
+    (event) => {
+      if (!usernameRequired) return;
+
+      const clickedBackdrop = event.target === authModal;
+      const clickedClose = event.target.closest?.("#modalClose");
+
+      if (clickedBackdrop || clickedClose) {
+        event.stopImmediatePropagation();
+        event.preventDefault();
+      }
+    },
+    true
+  );
+
+  /* =========================================
+     USERNAME HELPERS
+  ========================================= */
+
+  // Yalnız istifadəçinin özünün seçdiyi ad göstərilir.
+  // (Google adı və ya e-poçt prefiksi göstərilmir ki, təsadüfi ad görünməsin.)
+  function getChosenUsername(user) {
+    return user?.user_metadata?.username?.trim() || "";
+  }
+
+  function getDisplayName(user) {
+    return getChosenUsername(user) || "Player";
+  }
+
+  function validateUsername(value) {
+    if (!value || value.length < 3) {
+      return "Ad ən azı 3 simvol olmalıdır.";
+    }
+
+    if (value.length > 20) {
+      return "Ad ən çox 20 simvol ola bilər.";
+    }
+
+    if (!/^[\p{L}\p{N}_.\- ]+$/u.test(value)) {
+      return "Ad yalnız hərf, rəqəm, boşluq, _ . - simvollarından ibarət ola bilər.";
+    }
+
+    return null;
+  }
+
+  /* =========================================
+     GOOGLE LOGIN
+  ========================================= */
+
+  const GOOGLE_ICON = `
+    <svg viewBox="0 0 48 48" aria-hidden="true">
+      <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+      <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+      <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+      <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+    </svg>
+  `;
+
+  function googleButtonHTML(label) {
+    return `
+      <button id="googleAuthBtn" type="button" class="google-btn">
+        ${GOOGLE_ICON}
+        <span>${label}</span>
+      </button>
+      <div class="auth-divider">və ya e-poçt ilə</div>
+    `;
+  }
+
+  async function signInWithGoogle() {
+    const button = document.getElementById("googleAuthBtn");
+    const message = document.getElementById("mafiaMessage");
+    const label = button?.querySelector("span");
+    const originalLabel = label?.textContent;
+
+    if (button) button.disabled = true;
+    if (label) label.textContent = "Google-a yönləndirilir...";
+    if (message) message.textContent = "";
+
+    try {
+      const { error } = await mafiaSupabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: window.location.origin,
+          queryParams: { prompt: "select_account" }
+        }
+      });
+
+      if (error) throw error;
+      // Uğurlu olarsa brauzer Google səhifəsinə yönləndirilir.
+    } catch (error) {
+      console.error("Google giriş xətası:", error);
+
+      if (message) {
+        message.textContent =
+          error.message || "Google ilə giriş alınmadı. Yenidən cəhd edin.";
+      }
+
+      if (button) button.disabled = false;
+      if (label && originalLabel) label.textContent = originalLabel;
+    }
+  }
+
+  /* =========================================
+     USERNAME PROMPT (Google girişindən sonra)
+  ========================================= */
+
+  function needsUsername(user) {
+    if (!user) return false;
+    return !getChosenUsername(user);
+  }
+
+  function openUsernamePrompt() {
+    if (usernameRequired) return; // artıq açıqdır
+
+    usernameRequired = true;
+    authModal.classList.add("auth-locked");
+
+    openAuthModal(
+      "ADINI SEÇ",
+      `
+        <form id="mafiaUsernameForm" class="room-form">
+          <p class="auth-hint">
+            Hesabın təsdiqləndi ✓<br>
+            Oyunda görünəcək adını özün seç.
+          </p>
+
+          <label for="mafiaChosenUsername">İstifadəçi adı</label>
+          <input id="mafiaChosenUsername" type="text"
+            minlength="3" maxlength="20"
+            placeholder="Məsələn: GecəŞahı"
+            autocomplete="off" required>
+
+          <p id="mafiaUsernameMessage" class="room-form-message"></p>
+
+          <button id="mafiaUsernameSubmit" type="submit" class="modal-action-btn">
+            DAVAM ET
+          </button>
+
+          <button id="mafiaUsernameLogout" type="button" class="auth-link-btn">
+            Hesabdan çıx
+          </button>
+        </form>
+      `
+    );
+
+    const input = document.getElementById("mafiaChosenUsername");
+    input?.focus();
+
+    document
+      .getElementById("mafiaUsernameForm")
+      .addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        const username = input.value.trim();
+        const message = document.getElementById("mafiaUsernameMessage");
+        const button = document.getElementById("mafiaUsernameSubmit");
+
+        const validationError = validateUsername(username);
+
+        if (validationError) {
+          message.textContent = validationError;
+          return;
+        }
+
+        button.disabled = true;
+        button.textContent = "GÖZLƏ...";
+        message.textContent = "";
+
+        try {
+          const { data, error } = await mafiaSupabase.auth.updateUser({
+            data: { username }
+          });
+
+          if (error) throw error;
+
+          usernameRequired = false;
+          authModal.classList.remove("auth-locked");
+
+          updateNavbar(data.user);
+          closeAuthModal();
+        } catch (error) {
+          console.error("Ad yadda saxlanmadı:", error);
+          message.textContent =
+            error.message || "Ad yadda saxlanmadı. Yenidən cəhd edin.";
+          button.disabled = false;
+          button.textContent = "DAVAM ET";
+        }
+      });
+
+    document
+      .getElementById("mafiaUsernameLogout")
+      .addEventListener("click", async () => {
+        await mafiaSupabase.auth.signOut();
+      });
+  }
+
+  function checkUsernameRequirement(user) {
+    if (needsUsername(user)) {
+      // onAuthStateChange içindən birbaşa UI açmamaq üçün
+      setTimeout(openUsernamePrompt, 0);
+    }
+  }
+
+  /* =========================================
+     NAVBAR
+  ========================================= */
 
   function updateNavbar(user) {
     authLoginBtn.hidden = !!user;
@@ -53,12 +372,7 @@
       profileButton.hidden = !user;
 
       if (user) {
-        const username =
-          user.user_metadata?.username ||
-          user.email?.split("@")[0] ||
-          "Player";
-
-        profileButton.textContent = username.toUpperCase();
+        profileButton.textContent = getDisplayName(user).toUpperCase();
       }
     }
   }
@@ -146,10 +460,7 @@
     if (error || !data.user) return;
 
     const user = data.user;
-    const username =
-      user.user_metadata?.username ||
-      user.email?.split("@")[0] ||
-      "Player";
+    const username = getDisplayName(user);
 
     const joined = user.created_at
       ? new Date(user.created_at).toLocaleDateString("az-AZ", { year: "numeric", month: "long", day: "numeric" })
@@ -200,12 +511,20 @@
     });
   }
 
+  /* =========================================
+     LOGIN / SIGNUP FORM
+  ========================================= */
+
   function openAuth(type) {
     const isSignup = type === "signup";
 
     openAuthModal(
       isSignup ? "HESAB YARAT" : "DAXİL OL",
       `
+        ${googleButtonHTML(
+          isSignup ? "Google ilə qeydiyyatdan keç" : "Google ilə daxil ol"
+        )}
+
         <form id="mafiaAuthForm">
           ${isSignup ? `
             <label for="mafiaUsername">İstifadəçi adı</label>
@@ -231,6 +550,10 @@
       `
     );
 
+    document
+      .getElementById("googleAuthBtn")
+      .addEventListener("click", signInWithGoogle);
+
     document.getElementById("mafiaAuthForm").addEventListener("submit", async (event) => {
       event.preventDefault();
 
@@ -247,6 +570,9 @@
 
       try {
         if (isSignup) {
+          const usernameError = validateUsername(username);
+          if (usernameError) throw new Error(usernameError);
+
           const { data, error } = await mafiaSupabase.auth.signUp({
             email,
             password,
@@ -288,6 +614,10 @@
     });
   }
 
+  /* =========================================
+     EVENTS
+  ========================================= */
+
   authLoginBtn.addEventListener("click", () => openAuth("login"));
   authSignupBtn.addEventListener("click", () => openAuth("signup"));
 
@@ -298,7 +628,17 @@
   document.getElementById("modalClose").addEventListener("click", closeAuthModal);
 
   mafiaSupabase.auth.onAuthStateChange((event, session) => {
-    updateNavbar(session?.user || null);
+    const user = session?.user || null;
+
+    // Çıxış edilibsə, ad seçimi kilidini aç
+    if (!user && usernameRequired) {
+      usernameRequired = false;
+      authModal.classList.remove("auth-locked");
+      authModal.classList.remove("active");
+    }
+
+    updateNavbar(user);
+    checkUsernameRequirement(user);
   });
 
   async function initializeAuth() {
@@ -309,7 +649,10 @@
       return;
     }
 
-    updateNavbar(data.session?.user || null);
+    const user = data.session?.user || null;
+
+    updateNavbar(user);
+    checkUsernameRequirement(user);
   }
 
   initializeAuth();
