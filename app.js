@@ -131,6 +131,7 @@
   let gameRealtimeChannel = null;
   let gameActionSubmitted = false;
   let renderedGamePhaseKey = null;
+  let gameOverSentFor = null;      // "mafia:gameover" hadisəsi bir oyunda 1 dəfə
 
   /* VOTING / TIMING STATE */
   let serverOffsetMs = 0;          // server saatı − brauzer saatı
@@ -1966,15 +1967,19 @@
      LEAVE ROOM
   ========================================= */
 
-  async function leaveRoom() {
+  async function leaveRoom(options) {
     if (!activeRoom || !currentUser) {
       showHome();
       return;
     }
 
-    const confirmed = window.confirm(
-      "Bu otaqdan çıxmaq istədiyinizə əminsiniz?"
-    );
+    // Düyməyə basılanda event gəlir (skipConfirm yoxdur) → təsdiq soruşulur.
+    // Pop-up-dan { skipConfirm: true } gəlir → soruşulmur.
+    const skipConfirm = options?.skipConfirm === true;
+
+    const confirmed =
+      skipConfirm ||
+      window.confirm("Bu otaqdan çıxmaq istədiyinizə əminsiniz?");
 
     if (!confirmed) return;
 
@@ -2150,6 +2155,7 @@
     selectedGameTarget = null;
     gameParticipants = [];
     renderedGamePhaseKey = null;
+    gameOverSentFor = null;
     gameActionSubmitted = false;
     voteMarks = [];
     gameScreen?.classList.remove("is-vote-closed");
@@ -2760,6 +2766,14 @@
 
     setText("gameAnnouncementText", "Bu oyun başa çatdı.");
 
+    // extras.js qalib/məğlub pop-up-ını bu hadisə ilə açır
+    if (gameOverSentFor !== activeRoomId) {
+      gameOverSentFor = activeRoomId;
+      document.dispatchEvent(
+        new CustomEvent("mafia:gameover", { detail: { winner } })
+      );
+    }
+
     awardExp();
   }
 
@@ -2784,9 +2798,11 @@
         : `+${data.exp_gained} EXP qazandın · Səviyyə ${data.level}`;
 
       setText("gameAnnouncementText", text);
+      document.dispatchEvent(new CustomEvent("mafia:exp", { detail: text }));
     } catch (error) {
       expAwardedRoom = null;
       console.warn("EXP verilmədi (mafia-update.sql işlədilib?):", error);
+      document.dispatchEvent(new CustomEvent("mafia:exp", { detail: "EXP yazıla bilmədi." }));
     }
   }
 
@@ -3180,6 +3196,45 @@
   /* social.js üçün açıq API (otaqlar siyahısı, dost dəvəti, link ilə giriş) */
   window.mafiaApp = {
     getActiveRoom: () => activeRoom,
+
+    // extras.js: pop-up və səhifə bağlananda otaqdan silmə üçün
+    getState: () => ({
+      roomId: activeRoomId,
+      role: myGameRole,
+      winner: gameState?.winner || null,
+      isHost: isRoomHost
+    }),
+
+    // "Ana səhifəyə qayıt" (təsdiqsiz çıxış)
+    leaveNow: () => leaveRoom({ skipConfirm: true }),
+
+    // "Yenidən oyna": otaq yenidən gözləmə rejiminə qayıdır (server funksiyası lazımdır)
+    backToLobby: async () => {
+      if (!activeRoomId) return false;
+
+      try {
+        const { data, error } = await mafiaDB.rpc("back_to_lobby", {
+          p_room_id: activeRoomId
+        });
+
+        if (error) throw error;
+        if (data === false) return false;
+
+        activeRoom = { ...activeRoom, status: "waiting" };
+        hideGameScreen();
+        renderLobby();
+        showLobby();
+        await refreshLobbyPlayers();
+        return true;
+      } catch (error) {
+        console.warn("Yenidən oyna alınmadı (back_to_lobby SQL yoxdur?):", error);
+        showMessage(
+          "Yenidən oyna hələ aktiv deyil",
+          "Bunun üçün Supabase-də əlavə funksiya lazımdır. İndilik ana səhifəyə qayıdıb yeni otaq aça bilərsiniz."
+        );
+        return false;
+      }
+    },
 
     joinByCode: async (rawCode) => {
       const user = await getCurrentUser();
