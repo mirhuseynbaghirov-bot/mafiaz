@@ -1883,6 +1883,16 @@
             ...payload.new
           };
 
+          // Host dəyişibsə (köhnə host çıxıb), hostluq yeni oyunçuya keçir
+          if (currentUser && activeRoom.host_id) {
+            const nowHost = activeRoom.host_id === currentUser.id;
+
+            if (nowHost !== isRoomHost) {
+              isRoomHost = nowHost;
+              renderedGamePhaseKey = null;   // faza düymələri yenidən qurulsun
+            }
+          }
+
           renderLobby();
           renderGameSettings();
           updateStartButton();
@@ -2938,10 +2948,50 @@
      GAME — REFRESH & REALTIME
   ========================================= */
 
+  /* Host otaqdan çıxıbsa və hostluq hələ keçməyibsə (məs. köhnə otaq),
+     otaqda qalan ən kiçik yer nömrəli oyunçu hostluğu özünə götürür. */
+  let isClaimingHost = false;
+
+  async function claimHostIfMissing() {
+    if (isClaimingHost || isRoomHost) return;
+    if (!activeRoomId || !activeRoom?.host_id || !currentUser) return;
+
+    const humans = gameParticipants.filter((p) => p.targetType === "user");
+    if (!humans.length) return;
+
+    // Host hələ otaqdadır
+    if (humans.some((p) => p.id === activeRoom.host_id)) return;
+
+    // Növbə məndə deyil
+    const first = [...humans].sort((a, b) => a.seat - b.seat)[0];
+    if (first.id !== currentUser.id) return;
+
+    isClaimingHost = true;
+
+    try {
+      const { data, error } = await mafiaDB.rpc("claim_host", {
+        p_room_id: activeRoomId
+      });
+
+      if (error) throw error;
+
+      if (data === true) {
+        activeRoom = { ...activeRoom, host_id: currentUser.id };
+        isRoomHost = true;
+        renderedGamePhaseKey = null;
+      }
+    } catch (error) {
+      console.warn("Hostluq götürülmədi (mafia-host-fix.sql işlədilib?):", error);
+    } finally {
+      setTimeout(() => { isClaimingHost = false; }, 5000);
+    }
+  }
+
   async function refreshGameScreen() {
     if (!activeRoomId || !gameScreen || gameScreen.hidden) return;
 
     await loadGameParticipants();
+    await claimHostIfMissing();
 
     if (!myGameRole) {
       myGameRole = await getMyGameRole();
